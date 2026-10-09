@@ -97,6 +97,138 @@ def trend(d):
     if p < e20 < e50:
         return -1
     return 0
+def swings(d, k=2):
+    H = d["h"].values
+    L = d["l"].values
+    hs = []
+    ls = []
+    for i in range(k, len(d) - k):
+        if H[i] == max(H[i - k:i + k + 1]):
+            hs.append((i, float(H[i])))
+        if L[i] == min(L[i - k:i + k + 1]):
+            ls.append((i, float(L[i])))
+    return hs, ls
+
+
+def ict(d15, d1, s, a):
+    try:
+        return ict_calc(d15, d1, s, a)
+    except Exception as e:
+        print("ict error:", e)
+        return 0.0, []
+
+
+def ict_calc(d15, d1, s, a):
+    pts = 0.0
+    notes = []
+    dd = d15.iloc[-80:]
+    o = dd["o"].values
+    h = dd["h"].values
+    l = dd["l"].values
+    c = dd["c"].values
+    n = len(dd)
+    price = float(c[-1])
+
+    ref_lo = float(min(l[-28:-8]))
+    ref_hi = float(max(h[-28:-8]))
+    sw_lo = False
+    sw_hi = False
+    for i in range(n - 8, n):
+        if l[i] < ref_lo and c[i] > ref_lo:
+            sw_lo = True
+        if h[i] > ref_hi and c[i] < ref_hi:
+            sw_hi = True
+    if (s == 1 and sw_lo) or (s == -1 and sw_hi):
+        pts += 1.5
+        notes.append("سحب سيولة " + ("قاع" if s == 1 else "قمة"))
+    elif (s == 1 and sw_hi) or (s == -1 and sw_lo):
+        pts -= 1.0
+        notes.append("سحب سيولة عكس الاتجاه")
+
+    hs, ls = swings(dd)
+    if len(hs) >= 2 and len(ls) >= 2:
+        last3 = c[-3:]
+        if s == 1 and max(last3) > hs[-1][1]:
+            if hs[-2][1] > hs[-1][1]:
+                pts += 1.5
+                notes.append("MSS صاعد")
+            else:
+                pts += 0.75
+                notes.append("BOS صاعد")
+        if s == -1 and min(last3) < ls[-1][1]:
+            if ls[-2][1] < ls[-1][1]:
+                pts += 1.5
+                notes.append("MSS هابط")
+            else:
+                pts += 0.75
+                notes.append("BOS هابط")
+
+    fvg = None
+    for i in range(n - 1, n - 21, -1):
+        if s == 1 and l[i] > h[i - 2]:
+            bot = float(h[i - 2])
+            top = float(l[i])
+            if top - bot > 0.1 * a and (
+                    i == n - 1 or float(min(l[i + 1:])) > bot):
+                fvg = (bot, top)
+                break
+        if s == -1 and h[i] < l[i - 2]:
+            bot = float(h[i])
+            top = float(l[i - 2])
+            if top - bot > 0.1 * a and (
+                    i == n - 1 or float(max(h[i + 1:])) < top):
+                fvg = (bot, top)
+                break
+    if fvg:
+        near = fvg[0] - 0.3 * a <= price <= fvg[1] + 0.3 * a
+        pts += 1.0 if near else 0.5
+        notes.append(
+            f"FVG {'صاعد' if s == 1 else 'هابط'} "
+            f"{fmt(fvg[0])}-{fmt(fvg[1])}" + (" (السعر عنده)" if near else ""))
+
+    ob = None
+    for i in range(n - 4, n - 31, -1):
+        if s == 1 and c[i] < o[i]:
+            if (max(c[i + 1:i + 4]) > h[i]
+                    and max(h[i + 1:i + 4]) - l[i] > 1.5 * a
+                    and float(min(l[i + 1:])) >= l[i]):
+                ob = (float(l[i]), float(h[i]))
+                break
+        if s == -1 and c[i] > o[i]:
+            if (min(c[i + 1:i + 4]) < l[i]
+                    and h[i] - min(l[i + 1:i + 4]) > 1.5 * a
+                    and float(max(h[i + 1:])) <= h[i]):
+                ob = (float(l[i]), float(h[i]))
+                break
+    if ob:
+        near = ob[0] - 0.3 * a <= price <= ob[1] + 0.3 * a
+        pts += 1.0 if near else 0.5
+        notes.append(
+            f"أوردر بلوك {'صاعد' if s == 1 else 'هابط'} "
+            f"{fmt(ob[0])}-{fmt(ob[1])}" + (" (السعر عنده)" if near else ""))
+
+    hi = float(d1["h"].iloc[-48:].max())
+    lo = float(d1["l"].iloc[-48:].min())
+    if hi > lo:
+        pos = (price - lo) / (hi - lo)
+        if (s == 1 and pos < 0.5) or (s == -1 and pos > 0.5):
+            pts += 0.5
+            notes.append("ديسكاونت" if s == 1 else "بريميوم")
+        elif (s == 1 and pos > 0.75) or (s == -1 and pos < 0.25):
+            pts -= 0.5
+            notes.append("دخول متأخر بمنطقة " +
+                         ("بريميوم" if s == 1 else "ديسكاونت"))
+
+    hr = dd.index[-1].hour
+    if 7 <= hr < 10:
+        pts += 0.5
+        notes.append("كيل زون لندن")
+    elif 12 <= hr < 15:
+        pts += 0.5
+        notes.append("كيل زون نيويورك")
+
+    pts = max(-1.0, min(2.5, pts))
+    return round(pts, 1), notes
 def analyze(key, fr, btc_dir):
     d15, d1, d4 = fr["15m"], fr["1h"], fr["4h"]
     c = d15["c"]
@@ -152,6 +284,7 @@ def analyze(key, fr, btc_dir):
         sc += 0.5 if (price > e200) == (s == 1) else 0
         if btc_dir is not None and key in ("ETH", "SOL"):
             sc += 1 if btc_dir == s else (-1.5 if btc_dir == -s else 0)
+        sc += ict(d15, d1, s, a15)[0]
         return round(max(0.0, min(10.0, sc)), 1), brk
 
     sl, bl = score(1)
@@ -175,6 +308,9 @@ def analyze(key, fr, btc_dir):
     if vr is not None:
         obs += f" | فوليوم {vr:.1f}x"
     obs += f" | امتداد {ext:.1f} ATR"
+    notes = ict(d15, d1, s, a15)[1]
+    if notes:
+        obs += "\nICT: " + " | ".join(notes)
     res = {"key": key, "side": s, "score": sc, "price": price,
            "obs": obs, "tier": None, "style": style, "ext": round(ext, 1)}
 
@@ -230,10 +366,77 @@ def finish(st, sp, state, exit_r, label, now):
     sp["state"] = state
     sp["r"] = realized(sp, exit_r)
     sp["exit"] = label
-    st["closed"].append({k: sp[k] for k in (
-        "id", "key", "side", "style", "entry", "stop0",
-        "r", "exit", "t_decl")})
+    st["closed"].append({
+        "id": sp["id"], "key": sp["key"], "side": sp["side"],
+        "style": sp["style"], "entry": sp["entry"],
+        "stop0": sp["stop0"], "tps": sp["tps"],
+        "hits": list(sp["hits"]), "r": sp["r"], "exit": label,
+        "t_decl": sp["t_decl"], "t_close": now.isoformat()})
     st["cool"][sp["key"]] = now.isoformat()
+
+
+def trade_line(c):
+    h = c.get("hits") or [False, False, False]
+    n = sum(h)
+    tps = c.get("tps") or []
+    reach = ""
+    if n and len(tps) >= n:
+        mv = abs(tps[n - 1] - c["entry"])
+        reach = f"وصل TP{n} ({fmt(tps[n - 1])}) بمسافة {fmt(mv)}"
+    if c["exit"] == "TP3":
+        what = "حقق TP3 كامل"
+    elif c["exit"] == "STOP":
+        what = ("ضرب الوقف قبل أي هدف" if n == 0
+                else reach + " ثم رجع وضرب الوقف")
+    else:
+        what = "خروج مبكر" + ("، " + reach if reach else "")
+    sd = "LONG" if c["side"] == 1 else "SHORT"
+    nm = ASSETS[c["key"]][2]
+    if c["r"] <= 0:
+        ico = "❌"
+    elif c["exit"] == "STOP":
+        ico = "🟡"
+    else:
+        ico = "✅"
+    return (f"{ico} {c['id']} | {nm} {sd} | {c['style']}\n"
+            f"   دخول {fmt(c['entry'])} | {what}\n"
+            f"   النتيجة: {c['r']:+.2f}R")
+
+
+def weekly_report(st, now):
+    try:
+        back = (now.weekday() - 4) % 7
+        due = (now.normalize() - pd.Timedelta(days=back)
+               + pd.Timedelta(hours=21))
+        if due > now:
+            due -= pd.Timedelta(days=7)
+        last = st.get("last_report")
+        if last and pd.Timestamp(last) >= due:
+            return
+        start = due - pd.Timedelta(days=7)
+        wk = [c for c in st["closed"]
+              if c.get("t_close")
+              and start < pd.Timestamp(c["t_close"]) <= due]
+        if not wk:
+            st["last_report"] = now.isoformat()
+            return
+        total = sum(c["r"] for c in wk)
+        win = sum(1 for c in wk if c["r"] > 0)
+        text = (
+            "📋 تقرير الأسبوع (صفقات A المغلقة، تتبع ورقي)\n"
+            f"رابحة: {win} | خاسرة: {len(wk) - win} | "
+            f"المجموع {total:+.2f}R\n\n"
+            + "\n\n".join(trade_line(c) for c in wk)
+            + "\n\n⚠️ ورقي افتراضي، مو توصية مالية.")
+        t = requests.post(
+            f"https://api.telegram.org/bot{TG_TOKEN}/sendMessage",
+            json={"chat_id": TG_CHAT, "text": text[:4000]}, timeout=30)
+        if t.ok:
+            st["last_report"] = now.isoformat()
+        else:
+            print("report telegram error:", t.status_code, t.text)
+    except Exception as e:
+        print("report error:", e)
 
 
 def open_setup(st, res, t_last):
@@ -454,6 +657,7 @@ def main():
         print("sent")
     else:
         print("no events")
+    weekly_report(st, now)
     save(st)
 
 
