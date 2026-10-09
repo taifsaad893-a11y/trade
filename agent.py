@@ -49,7 +49,6 @@ def analyze(sym, name):
         trend = "هابط"
     else:
         trend = "عرضي/غير واضح"
-
     rng = (h - l).replace(0, float("nan"))
     pos = ((c - l) - (h - c)) / rng
     vol_ok = float(v.tail(20).sum()) > 0
@@ -89,8 +88,6 @@ def analyze(sym, name):
         f"\nسيناريو {side}: دخول {price:.2f} | "
         f"وقف {stop:.2f} | هدف {target:.2f} | R:R {rr:.1f}"
     )
-
-
 parts = []
 for s, n in SYMBOLS.items():
     try:
@@ -139,4 +136,6 @@ t = requests.post(
     timeout=30,
 )
 if not t.ok:
-    print("Telegram error:", t.status_code, t.
+    print("Telegram error:", t.status_code, t.text)
+    raise SystemExit(1)
+print("OK, sent to Telegram")
