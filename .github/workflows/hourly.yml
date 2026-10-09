@@ -1,8 +1,13 @@
 name: hourly
 on:
   schedule:
-    - cron: "0 * * * 1-5"
+    - cron: "5 * * * *"
   workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: scanner
+  cancel-in-progress: false
 jobs:
   run:
     runs-on: ubuntu-latest
@@ -16,3 +21,10 @@ jobs:
           GEMINI_KEY: ${{ secrets.GEMINI_KEY }}
           TG_TOKEN: ${{ secrets.TG_TOKEN }}
           TG_CHAT: ${{ secrets.TG_CHAT }}
+          EVENT: ${{ github.event_name }}
+      - name: save state
+        run: |
+          git config user.name "bot"
+          git config user.email "bot@users.noreply.github.com"
+          git add state.json
+          git diff --staged --quiet || (git commit -m "state" && git push)
