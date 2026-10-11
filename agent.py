@@ -3,6 +3,7 @@ import json
 import requests
 import pandas as pd
 import yfinance as yf
+import news
 
 GEMINI_KEY = os.environ["GEMINI_KEY"]
 TG_TOKEN = os.environ["TG_TOKEN"]
@@ -460,8 +461,9 @@ def manage(st, sp, d15, d1, price, now):
     name = ASSETS[sp["key"]][2]
     pid = sp["id"]
     risk0 = abs(sp["entry"] - sp["stop0"])
-    cs = d15[d15.index > pd.Timestamp(sp["t0"])]
+    cs = d15[d15.index > pd.Timestamp(sp.get("seen", sp["t0"]))]
     for ts, k in cs.iterrows():
+        sp["seen"] = ts.isoformat()
         hi, lo = float(k["h"]), float(k["l"])
         if sp["state"] == "ARMED":
             if (lo <= sp["stop"]) if s == 1 else (hi >= sp["stop"]):
@@ -585,6 +587,7 @@ def main():
         b = trend(data["BTC"]["1h"])
         btc_dir = a if a == b else 0
 
+    nw = news.get_news(st, now, GEMINI_KEY)
     events = []
     summary = []
     for key, fr in data.items():
@@ -610,6 +613,7 @@ def main():
         except Exception as e:
             print(key, "analyze error:", e)
             continue
+        res = news.apply(res, nw)
         sd = "LONG" if res["side"] == 1 else "SHORT"
         summary.append(f"{name}: {sd} سكور {res['score']}/10")
         if res["tier"] in ("A", "ARMED"):
@@ -628,6 +632,8 @@ def main():
         elif res["score"] < 5.5:
             st["watch"].pop(key, None)
 
+    events += news.alerts(nw, st, now)
+    summary.append(nw["status"])
     if not events and EVENT == "workflow_dispatch":
         events.append("ℹ️ فحص يدوي، ما في حدث جديد:\n" + "\n".join(summary))
 
