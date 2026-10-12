@@ -267,6 +267,8 @@ def ict_calc(d15, d1, s, a):
     return round(pts, 1), notes
 A_BO = 8.0
 A_RT = 7.0
+MIN_RISK = {"BTC": 0.004, "ETH": 0.004, "SOL": 0.005,
+            "GOLD": 0.002, "NDX": 0.0015}
 
 
 def analyze(key, fr, btc_dir):
@@ -317,7 +319,8 @@ def analyze(key, fr, btc_dir):
                            ep + a15) + 0.2 * a15
             risk = stop - ep
             lv = lo1
-        if risk <= 0 or risk > 3 * a1:
+        if (risk <= 0 or risk > 3 * a1
+                or risk < MIN_RISK.get(key, 0.004) * ep):
             return None
         room = (lv - ep) * s
         rr = min(3.0, room / risk) if room > 0 else 3.0
@@ -393,7 +396,7 @@ def analyze(key, fr, btc_dir):
                 return res
 
     if style == "Retest" and btc_ok and sc >= A_RT:
-        pl = plan(s, price, True)
+        pl = plan(s, price)
         if pl and pl["rr"] >= 2:
             res.update(tier="A", plan=pl)
             return res
