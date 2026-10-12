@@ -15,7 +15,7 @@ ASSETS = {
     "BTC": ("bin", "BTCUSDT", "بيتكوين"),
     "ETH": ("bin", "ETHUSDT", "إيثريوم"),
     "SOL": ("bin", "SOLUSDT", "سولانا"),
-    "GOLD": ("yf", "GC=F", "الذهب"),
+    "GOLD": ("fut", "XAUUSDT", "الذهب"),
     "NDX": ("yf", "^NDX", "ناسداك"),
 }
 TR = {1: "صاعد", -1: "هابط", 0: "عرضي"}
@@ -23,6 +23,14 @@ TR = {1: "صاعد", -1: "هابط", 0: "عرضي"}
 
 def fmt(x):
     return f"{x:,.2f}" if abs(x) >= 10 else f"{x:.4f}"
+
+
+def market_closed(key, now):
+    if key != "GOLD":
+        return False
+    wd = now.weekday()
+    hr = now.hour
+    return wd == 5 or (wd == 6 and hr < 22) or (wd == 4 and hr >= 21)
 
 
 def bin_klines(sym, tf, n=300):
@@ -44,6 +52,27 @@ def bin_klines(sym, tf, n=300):
     raise RuntimeError("binance failed " + sym)
 
 
+def fut_klines(sym, tf, n=300):
+    for host in ("https://fapi.binance.com",
+                 "https://fapi1.binance.com",
+                 "https://fapi2.binance.com",
+                 "https://fapi3.binance.com"):
+        try:
+            r = requests.get(
+                host + "/fapi/v1/klines",
+                params={"symbol": sym, "interval": tf, "limit": n},
+                timeout=20)
+            if r.ok:
+                d = pd.DataFrame(r.json()).iloc[:, :6]
+                d.columns = ["t", "o", "h", "l", "c", "v"]
+                d = d.astype(float)
+                d.index = pd.to_datetime(d["t"], unit="ms", utc=True)
+                return d.drop(columns="t").iloc[:-1]
+        except Exception:
+            pass
+    raise RuntimeError("futures failed " + sym)
+
+
 def yf_frame(sym, period, interval):
     d = yf.download(sym, period=period, interval=interval, progress=False)
     d.columns = [c[0] if isinstance(c, tuple) else c for c in d.columns]
@@ -57,6 +86,12 @@ def yf_frame(sym, period, interval):
 def frames(kind, sym):
     if kind == "bin":
         return {tf: bin_klines(sym, tf) for tf in ("15m", "1h", "4h")}
+    if kind == "fut":
+        try:
+            return {tf: fut_klines(sym, tf) for tf in ("15m", "1h", "4h")}
+        except Exception as e:
+            print("futures failed, using yahoo:", e)
+            return frames("yf", "XAUUSD=X")
     f15 = yf_frame(sym, "5d", "15m")
     f1h = yf_frame(sym, "60d", "1h")
     f4h = f1h.resample("4h").agg(
@@ -230,6 +265,10 @@ def ict_calc(d15, d1, s, a):
 
     pts = max(-1.0, min(2.5, pts))
     return round(pts, 1), notes
+A_BO = 8.0
+A_RT = 7.0
+
+
 def analyze(key, fr, btc_dir):
     d15, d1, d4 = fr["15m"], fr["1h"], fr["4h"]
     c = d15["c"]
@@ -246,24 +285,41 @@ def analyze(key, fr, btc_dir):
     lo1 = float(d1["l"].iloc[-49:-1].min())
     e200 = float(ema(d1["c"], 200).iloc[-1])
     e20 = float(ema(c, 20).iloc[-1])
+    sep = abs(float(ema(d1["c"], 20).iloc[-1])
+              - float(ema(d1["c"], 50).iloc[-1])) / a1
     v = d15["v"]
     vr = None
     vm = float(v.iloc[-21:-1].mean())
     if vm > 0:
         vr = float(v.iloc[-1]) / vm
+    last = d15.iloc[-1]
+    o_l = float(last["o"])
+    c_l = float(last["c"])
+    h_l = float(last["h"])
+    l_l = float(last["l"])
+    rng = max(h_l - l_l, 1e-9)
+    bpos = (c_l - l_l) / rng
 
-    def plan(s, ep):
+    def plan(s, ep, tight=False):
         if s == 1:
-            stop = min(float(d15["l"].tail(12).min()), ep - a15) - 0.2 * a15
+            if tight:
+                stop = min(l_l, ep - 0.5 * a15) - 0.2 * a15
+            else:
+                stop = min(float(d15["l"].tail(12).min()),
+                           ep - a15) - 0.2 * a15
             risk = ep - stop
-            lvl = hi1
+            lv = hi1
         else:
-            stop = max(float(d15["h"].tail(12).max()), ep + a15) + 0.2 * a15
+            if tight:
+                stop = max(h_l, ep + 0.5 * a15) + 0.2 * a15
+            else:
+                stop = max(float(d15["h"].tail(12).max()),
+                           ep + a15) + 0.2 * a15
             risk = stop - ep
-            lvl = lo1
+            lv = lo1
         if risk <= 0 or risk > 3 * a1:
             return None
-        room = (lvl - ep) * s
+        room = (lv - ep) * s
         rr = min(3.0, room / risk) if room > 0 else 3.0
         tps = [ep + s * risk * k for k in (1, 2, 3)]
         return {"entry": ep, "stop": stop, "tps": tps, "rr": round(rr, 1)}
@@ -292,18 +348,25 @@ def analyze(key, fr, btc_dir):
     ss, bs = score(-1)
     s = 1 if sl >= ss else -1
     sc, brk = (sl, bl) if s == 1 else (ss, bs)
-    last = d15.iloc[-1]
     if s == 1:
-        rt = (t4 == 1 and t1 == 1 and float(last["l"]) <= e20 + 0.2 * a15
-              and price > e20)
         lvl = hi20
         ext = (price - hi20) / a15
+        pull = l_l <= e20 + 0.2 * a15 and price > e20 and c_l > o_l
+        wick = (min(o_l, c_l) - l_l) >= 0.3 * rng
+        strong = bpos >= 0.65
     else:
-        rt = (t4 == -1 and t1 == -1 and float(last["h"]) >= e20 - 0.2 * a15
-              and price < e20)
         lvl = lo20
         ext = (lo20 - price) / a15
+        pull = h_l >= e20 - 0.2 * a15 and price < e20 and c_l < o_l
+        wick = (h_l - max(o_l, c_l)) >= 0.3 * rng
+        strong = bpos <= 0.35
+    trend_ok = t4 == s and t1 == s and sep >= 0.4
+    btc_ok = not (btc_dir is not None and key in ("ETH", "SOL")
+                  and btc_dir == -s)
+    vol_ok = vr is None or vr >= 1.3
+    rt = trend_ok and pull and wick and 38 <= r15 <= 62
     style = "Breakout" if brk else ("Retest" if rt else None)
+
     obs = (f"مرصود: 4h {TR[t4]} | 1h {TR[t1]} | RSI15 {r15:.0f} | "
            f"MACD15 {'+' if mh > 0 else '-'}")
     if vr is not None:
@@ -313,19 +376,47 @@ def analyze(key, fr, btc_dir):
     if notes:
         obs += "\nICT: " + " | ".join(notes)
     res = {"key": key, "side": s, "score": sc, "price": price,
-           "obs": obs, "tier": None, "style": style, "ext": round(ext, 1)}
+           "obs": obs, "tier": None, "style": style,
+           "ext": round(ext, 1), "miss": []}
 
-    pl = plan(s, price) if style else None
-    if style and pl and sc >= 7.5 and pl["rr"] >= 2:
-        res.update(tier="A", plan=pl)
-        return res
+    if style == "Breakout" and trend_ok and btc_ok and sc >= A_BO:
+        if ext <= 1.0 and strong and vol_ok:
+            pl = plan(s, price)
+            if pl and pl["rr"] >= 2:
+                res.update(tier="A", plan=pl)
+                return res
+        elif ext > 1.0:
+            pa = plan(s, lvl)
+            if pa and pa["rr"] >= 2:
+                res.update(tier="ARMED", plan=pa, style="Retest",
+                           zone=[lvl - 0.3 * a15, lvl + 0.3 * a15])
+                return res
 
-    if brk and sc >= 7.5 and ext > 0.5:
-        pa = plan(s, lvl)
-        if pa and pa["rr"] >= 2:
-            res.update(tier="ARMED", plan=pa, style="Retest",
-                       zone=[lvl - 0.3 * a15, lvl + 0.3 * a15])
+    if style == "Retest" and btc_ok and sc >= A_RT:
+        pl = plan(s, price, True)
+        if pl and pl["rr"] >= 2:
+            res.update(tier="A", plan=pl)
             return res
+
+    miss = []
+    if not (t4 == s and t1 == s):
+        miss.append("ترند 4h و1h مو متفقين")
+    elif sep < 0.4:
+        miss.append("الترند ضعيف (عرضي)")
+    if not btc_ok:
+        miss.append("عكس اتجاه البيتكوين")
+    if brk and ext > 1.0:
+        miss.append("السعر ممتد، ينتظر ريتست")
+    elif brk and not strong:
+        miss.append("شمعة الكسر ضعيفة")
+    elif brk and not vol_ok:
+        miss.append("فوليوم ضعيف")
+    if not brk and not rt:
+        miss.append("ما في كسر ولا ريتست واضح")
+    need = A_BO if brk else A_RT
+    if sc < need:
+        miss.append(f"السكور تحت {need}")
+    res["miss"] = miss
 
     if sc >= 6:
         if s == 1:
@@ -464,6 +555,8 @@ def manage(st, sp, d15, d1, price, now):
     cs = d15[d15.index > pd.Timestamp(sp.get("seen", sp["t0"]))]
     for ts, k in cs.iterrows():
         sp["seen"] = ts.isoformat()
+        if market_closed(sp["key"], ts):
+            continue
         hi, lo = float(k["h"]), float(k["l"])
         if sp["state"] == "ARMED":
             if (lo <= sp["stop"]) if s == 1 else (hi >= sp["stop"]):
@@ -561,10 +654,13 @@ def msg_setup(res, sp, name):
 
 def msg_watch(res, name):
     side = "LONG" if res["side"] == 1 else "SHORT"
+    miss = ""
+    if res.get("miss"):
+        miss = "ناقص للـ A: " + " | ".join(res["miss"]) + "\n"
     return (f"🟡 B+ مراقبة | {name} {side} (مو دخول لسا)\n"
             f"السعر: {fmt(res['price'])} | سكور {res['score']}/10\n"
             f"التأكيد المطلوب: {res['cond']}\n"
-            f"الإلغاء: {res['inv']}\n{res['obs']}")
+            f"الإلغاء: {res['inv']}\n{miss}{res['obs']}")
 
 
 def main():
@@ -604,6 +700,9 @@ def main():
             else:
                 summary.append(f"{name}: صفقة ورقية {sp['state']}")
             continue
+        if market_closed(key, now):
+            summary.append(f"{name}: السوق مسكر")
+            continue
         cool = st["cool"].get(key)
         if cool and now - pd.Timestamp(cool) < pd.Timedelta(hours=2):
             summary.append(f"{name}: فترة انتظار بعد إغلاق")
@@ -615,7 +714,8 @@ def main():
             continue
         res = news.apply(res, nw)
         sd = "LONG" if res["side"] == 1 else "SHORT"
-        summary.append(f"{name}: {sd} سكور {res['score']}/10")
+        summary.append(f"{name}: {sd} سكور {res['score']}/10 "
+                       f"| سعر {fmt(res['price'])}")
         if res["tier"] in ("A", "ARMED"):
             sp = open_setup(st, res, d15.index[-1])
             st["active"][key] = sp
