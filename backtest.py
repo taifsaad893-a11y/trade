@@ -47,8 +47,8 @@ def klines_range(sym, tf, start, end, hosts, path):
         cur = got[-1][0] + 1
         if len(got) < 1000:
             break
-    d = pd.DataFrame(rows).iloc[:, :6]
-    d.columns = ["t", "o", "h", "l", "c", "v"]
+    d = pd.DataFrame(rows).iloc[:, [0, 1, 2, 3, 4, 5, 9]]
+    d.columns = ["t", "o", "h", "l", "c", "v", "tb"]
     d = d.astype(float)
     d.index = pd.to_datetime(d["t"], unit="ms", utc=True)
     return d.drop(columns="t").iloc[:-1]
@@ -230,7 +230,7 @@ def main():
             print(key, "load error:", e)
 
     base = run(data, bt_start, lambda now: False)
-    text = report("🧪 باك تيست v2 (ورقي، بدون فلتر الأخبار)",
+    text = report("🧪 باك تيست v4 (ورقي، بدون فلتر الأخبار)",
                   base, bt_start, end)
     if EVENTS:
         ev = [pd.Timestamp(e, tz="UTC") for e in EVENTS]
