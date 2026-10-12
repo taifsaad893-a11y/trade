@@ -5,9 +5,14 @@ import requests
 DAYS = 90
 STEP = 2
 EVENTS = []  # اختياري، بتوقيت UTC مثل: "2026-09-16 18:00"
+# تكلفة تقريبية ذهاب وإياب كنسبة من سعر الدخول (عدّلها حسب منصتك)
+COST = {"BTC": 0.0010, "ETH": 0.0010, "SOL": 0.0012,
+        "GOLD": 0.0005, "NDX": 0.0004}
 BEFORE = pd.Timedelta(minutes=30)
 AFTER = pd.Timedelta(minutes=45)
 HOSTS = ["https://data-api.binance.vision", "https://api.binance.com"]
+FUT_HOSTS = ["https://fapi.binance.com", "https://fapi1.binance.com",
+             "https://fapi2.binance.com", "https://fapi3.binance.com"]
 
 src = open("agent.py", encoding="utf-8").read()
 src = src.rsplit("\nmain()", 1)[0]
@@ -16,16 +21,16 @@ exec(compile(src, "agent.py", "exec"), A)
 ASSETS = A["ASSETS"]
 
 
-def bin_range(sym, tf, start, end):
+def klines_range(sym, tf, start, end, hosts, path):
     rows = []
     cur = int(start.timestamp() * 1000)
     end_ms = int(end.timestamp() * 1000)
     while cur < end_ms:
         got = None
-        for h in HOSTS:
+        for h in hosts:
             try:
                 r = requests.get(
-                    h + "/api/v3/klines",
+                    h + path,
                     params={"symbol": sym, "interval": tf,
                             "startTime": cur, "endTime": end_ms,
                             "limit": 1000}, timeout=30)
@@ -50,13 +55,29 @@ def bin_range(sym, tf, start, end):
 
 
 def load_asset(kind, sym, bt_start, end):
+    day = pd.Timedelta(days=1)
     if kind == "bin":
-        day = pd.Timedelta(days=1)
         return {
-            "15m": bin_range(sym, "15m", bt_start - 4 * day, end),
-            "1h": bin_range(sym, "1h", bt_start - 14 * day, end),
-            "4h": bin_range(sym, "4h", bt_start - 55 * day, end),
+            "15m": klines_range(sym, "15m", bt_start - 4 * day, end,
+                                HOSTS, "/api/v3/klines"),
+            "1h": klines_range(sym, "1h", bt_start - 14 * day, end,
+                               HOSTS, "/api/v3/klines"),
+            "4h": klines_range(sym, "4h", bt_start - 55 * day, end,
+                               HOSTS, "/api/v3/klines"),
         }
+    if kind == "fut":
+        try:
+            return {
+                "15m": klines_range(sym, "15m", bt_start - 4 * day, end,
+                                    FUT_HOSTS, "/fapi/v1/klines"),
+                "1h": klines_range(sym, "1h", bt_start - 14 * day, end,
+                                   FUT_HOSTS, "/fapi/v1/klines"),
+                "4h": klines_range(sym, "4h", bt_start - 55 * day, end,
+                                   FUT_HOSTS, "/fapi/v1/klines"),
+            }
+        except Exception as e:
+            print("futures failed, using yahoo:", e)
+            return load_asset("yf", "XAUUSD=X", bt_start, end)
     f15 = A["yf_frame"](sym, "59d", "15m")
     f1h = A["yf_frame"](sym, "700d", "1h")
     f4h = f1h.resample("4h").agg(
@@ -107,6 +128,8 @@ def run_asset(key, fr, btc, cache, bt_start, blocked):
         cool = st["cool"].get(key)
         if cool and now - pd.Timestamp(cool) < pd.Timedelta(hours=2):
             continue
+        if A["market_closed"](key, now):
+            continue
         if blocked(now):
             continue
         bd = None
@@ -151,15 +174,38 @@ def run(data, bt_start, blocked):
     return out
 
 
-def report(title, out):
-    allt = [t for v in out.values() for t in v]
-    lines = [title, "الكل: " + summ(allt)]
-    for k, v in out.items():
+def net_trades(gross):
+    res = {}
+    for k, v in gross.items():
+        pct = COST.get(k, 0.001)
+        n = []
+        for t in v:
+            risk = max(abs(t["entry"] - t["stop0"]), 1e-9)
+            t2 = dict(t)
+            t2["r"] = round(t["r"] - pct * t["entry"] / risk, 3)
+            n.append(t2)
+        res[k] = n
+    return res
+
+
+def report(title, gross, bt_start, end):
+    net = net_trades(gross)
+    g_all = [t for v in gross.values() for t in v]
+    n_all = [t for v in net.values() for t in v]
+    cut = bt_start + (end - bt_start) * 2 / 3
+    lines = [title,
+             "قبل التكلفة: " + summ(g_all),
+             "بعد التكلفة: " + summ(n_all)]
+    for k, v in net.items():
         lines.append(f"{ASSETS[k][2]}: {summ(v)}")
     for sty in ("Breakout", "Retest"):
-        sub = [t for t in allt if t["style"] == sty]
+        sub = [t for t in n_all if t["style"] == sty]
         if sub:
             lines.append(f"{sty}: {summ(sub)}")
+    a = [t for t in n_all if pd.Timestamp(t["t_close"]) <= cut]
+    b = [t for t in n_all if pd.Timestamp(t["t_close"]) > cut]
+    lines.append("أول ثلثين: " + summ(a))
+    lines.append("آخر ثلث: " + summ(b))
     return "\n".join(lines)
 
 
@@ -184,22 +230,17 @@ def main():
             print(key, "load error:", e)
 
     base = run(data, bt_start, lambda now: False)
-    text = report("🧪 باك تيست بدون فلتر الأخبار (ورقي، قواعد A الحالية)",
-                  base)
+    text = report("🧪 باك تيست v2 (ورقي، بدون فلتر الأخبار)",
+                  base, bt_start, end)
     if EVENTS:
         ev = [pd.Timestamp(e, tz="UTC") for e in EVENTS]
         filt = run(data, bt_start,
                    lambda now: any(t - BEFORE <= now <= t + AFTER
                                    for t in ev))
-        text += "\n\n" + report("🧪 مع فلتر الأخبار (التواريخ اللي حطيتها)",
-                                filt)
+        text += "\n\n" + report("🧪 مع فلتر الأخبار", filt, bt_start, end)
     text += (
-        f"\n\nالفترة: آخر {DAYS} يوم للكريبتو، والذهب وناسداك آخر ~59 يوم "
-        "فقط (حد yfinance).\n"
-        "تحذير: بدون عمولة أو سبريد أو سلبيج، وفحص كل 30 دقيقة، "
-        "والوقف يُفحص قبل الهدف داخل الشمعة الواحدة. "
-        "نسبة النجاح تحسب كل صفقة R>0 (حتى لو خرجت على الدخول بعد TP1). "
-        "الماضي ما يضمن المستقبل، ولا يشمل ميل الأخبار (Gemini).")
+        f"\n\nآخر {DAYS} يوم للكريبتو والذهب، وناسداك ~59 يوم. "
+        "التكلفة تقديرية. النتيجة ما تضمن المستقبل.")
     send(text)
 
 
