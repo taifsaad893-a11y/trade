@@ -15,11 +15,10 @@ ASSETS = {
     "BTC": ("bin", "BTCUSDT", "بيتكوين"),
     "ETH": ("bin", "ETHUSDT", "إيثريوم"),
     "SOL": ("bin", "SOLUSDT", "سولانا"),
-    "GOLD": ("okx", "XAU-USDT", "الذهب"),
+    "GOLD": ("td", "XAU/USD", "الذهب"),
     "NDX": ("yf", "^NDX", "ناسداك"),
 }
 TR = {1: "صاعد", -1: "هابط", 0: "عرضي"}
-OKX_BARS = {"15m": "15m", "1h": "1H", "4h": "4H"}
 
 
 def fmt(x):
@@ -57,22 +56,6 @@ def bin_klines(sym, tf, n=300):
     raise RuntimeError("binance failed " + sym)
 
 
-def okx_klines(inst, tf, n=300):
-    r = requests.get(
-        "https://www.okx.com/api/v5/market/candles",
-        params={"instId": inst, "bar": OKX_BARS[tf], "limit": n},
-        timeout=20)
-    j = r.json()
-    if j.get("code") != "0" or not j.get("data"):
-        raise RuntimeError("okx: " + str(j)[:150])
-    rows = [x for x in j["data"] if x[8] == "1"]
-    d = pd.DataFrame(rows).iloc[:, :6]
-    d.columns = ["t", "o", "h", "l", "c", "v"]
-    d = d.astype(float)
-    d.index = pd.to_datetime(d["t"], unit="ms", utc=True)
-    return d.drop(columns="t").sort_index()
-
-
 def td_frame(sym, interval, n=300):
     key = os.environ.get("TWELVE_KEY", "")
     if not key:
@@ -107,9 +90,50 @@ def yf_frame(sym, period, interval):
 def frames(kind, sym):
     if kind == "bin":
         return {tf: bin_klines(sym, tf) for tf in ("15m", "1h", "4h")}
-    if kind == "okx":
-        try:
-            return {tf: okx_klines(sym, tf) for tf in ("15m
+    if kind == "td":
+        return {tf: td_frame(sym, iv) for tf, iv in
+                (("15m", "15min"), ("1h", "1h"), ("4h", "4h"))}
+    f15 = yf_frame(sym, "5d", "15m")
+    f1h = yf_frame(sym, "60d", "1h")
+    f4h = f1h.resample("4h").agg(
+        {"o": "first", "h": "max", "l": "min",
+         "c": "last", "v": "sum"}).dropna().iloc[:-1]
+    return {"15m": f15, "1h": f1h, "4h": f4h}
+
+
+def ema(s, n):
+    return s.ewm(span=n, adjust=False).mean()
+
+
+def rsi(s, n=14):
+    d = s.diff()
+    up = d.clip(lower=0).ewm(alpha=1 / n, adjust=False).mean()
+    dn = (-d.clip(upper=0)).ewm(alpha=1 / n, adjust=False).mean()
+    return 100 - 100 / (1 + up / dn)
+
+
+def macd_h(s):
+    m = ema(s, 12) - ema(s, 26)
+    return m - ema(m, 9)
+
+
+def atr(d, n=14):
+    pc = d["c"].shift(1)
+    tr = pd.concat([d["h"] - d["l"], (d["h"] - pc).abs(),
+                    (d["l"] - pc).abs()], axis=1).max(axis=1)
+    return tr.rolling(n).mean()
+
+
+def trend(d):
+    c = d["c"]
+    e20 = float(ema(c, 20).iloc[-1])
+    e50 = float(ema(c, 50).iloc[-1])
+    p = float(c.iloc[-1])
+    if p > e20 > e50:
+        return 1
+    if p < e20 < e50:
+        return -1
+    return 0
 def swings(d, k=2):
     H = d["h"].values
     L = d["l"].values
@@ -243,7 +267,6 @@ def ict_calc(d15, d1, s, a):
     pts = max(-1.0, min(2.5, pts))
     return round(pts, 1), notes
 A_MIN = 7.5
-SPOT_ONLY = False
 USE_MIN_STOP = True
 MIN_RISK = {"BTC": 0.004, "ETH": 0.004, "SOL": 0.005,
             "GOLD": 0.002, "NDX": 0.0015}
@@ -324,7 +347,7 @@ def sr_levels(d1, a1, price):
         return None, None
 
 
-def analyze_core(key, fr, btc_dir):
+def analyze(key, fr, btc_dir):
     d15, d1, d4 = fr["15m"], fr["1h"], fr["4h"]
     c = d15["c"]
     price = float(c.iloc[-1])
@@ -473,13 +496,6 @@ def analyze_core(key, fr, btc_dir):
                     else f"إغلاق شمعة 15m تحت {fmt(lvl)} مع فوليوم")
             inv = f"اختراق {fmt(sw)}"
         res.update(tier="B", cond=cond, inv=inv)
-    return res
-
-
-def analyze(key, fr, btc_dir):
-    res = analyze_core(key, fr, btc_dir)
-    if SPOT_ONLY and res["side"] == -1:
-        res["tier"] = None
     return res
 def load():
     try:
