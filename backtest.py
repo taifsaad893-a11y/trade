@@ -1,4 +1,5 @@
 import os
+import time
 import pandas as pd
 import requests
 
@@ -11,8 +12,6 @@ COST = {"BTC": 0.0010, "ETH": 0.0010, "SOL": 0.0012,
 BEFORE = pd.Timedelta(minutes=30)
 AFTER = pd.Timedelta(minutes=45)
 HOSTS = ["https://data-api.binance.vision", "https://api.binance.com"]
-FUT_HOSTS = ["https://fapi.binance.com", "https://fapi1.binance.com",
-             "https://fapi2.binance.com", "https://fapi3.binance.com"]
 
 src = open("agent.py", encoding="utf-8").read()
 src = src.rsplit("\nmain()", 1)[0]
@@ -21,16 +20,16 @@ exec(compile(src, "agent.py", "exec"), A)
 ASSETS = A["ASSETS"]
 
 
-def klines_range(sym, tf, start, end, hosts, path):
+def klines_range(sym, tf, start, end):
     rows = []
     cur = int(start.timestamp() * 1000)
     end_ms = int(end.timestamp() * 1000)
     while cur < end_ms:
         got = None
-        for h in hosts:
+        for h in HOSTS:
             try:
                 r = requests.get(
-                    h + path,
+                    h + "/api/v3/klines",
                     params={"symbol": sym, "interval": tf,
                             "startTime": cur, "endTime": end_ms,
                             "limit": 1000}, timeout=30)
@@ -54,30 +53,55 @@ def klines_range(sym, tf, start, end, hosts, path):
     return d.drop(columns="t").iloc[:-1]
 
 
+def td_range(sym, interval, start, end):
+    key = os.environ["TWELVE_KEY"]
+    parts = []
+    cur_end = end
+    for _ in range(6):
+        r = requests.get(
+            "https://api.twelvedata.com/time_series",
+            params={"symbol": sym, "interval": interval,
+                    "outputsize": 5000, "timezone": "UTC",
+                    "apikey": key,
+                    "end_date": cur_end.strftime("%Y-%m-%d %H:%M:%S")},
+            timeout=60)
+        j = r.json()
+        time.sleep(8)
+        if "values" not in j:
+            if parts:
+                break
+            raise RuntimeError("twelvedata: " + str(j)[:200])
+        d = pd.DataFrame(j["values"])
+        d["t"] = pd.to_datetime(d["datetime"], utc=True)
+        d = d.set_index("t").sort_index()
+        parts.append(d)
+        oldest = d.index[0]
+        if oldest <= start or len(d) < 5000:
+            break
+        cur_end = oldest - pd.Timedelta(seconds=1)
+    d = pd.concat(parts).sort_index()
+    d = d[~d.index.duplicated()]
+    out = d[["open", "high", "low", "close"]].astype(float)
+    out.columns = ["o", "h", "l", "c"]
+    out["v"] = 0.0
+    out = out[out.index >= start]
+    return out.iloc[:-1]
+
+
 def load_asset(kind, sym, bt_start, end):
     day = pd.Timedelta(days=1)
     if kind == "bin":
         return {
-            "15m": klines_range(sym, "15m", bt_start - 4 * day, end,
-                                HOSTS, "/api/v3/klines"),
-            "1h": klines_range(sym, "1h", bt_start - 14 * day, end,
-                               HOSTS, "/api/v3/klines"),
-            "4h": klines_range(sym, "4h", bt_start - 55 * day, end,
-                               HOSTS, "/api/v3/klines"),
+            "15m": klines_range(sym, "15m", bt_start - 4 * day, end),
+            "1h": klines_range(sym, "1h", bt_start - 14 * day, end),
+            "4h": klines_range(sym, "4h", bt_start - 55 * day, end),
         }
-    if kind == "fut":
-        try:
-            return {
-                "15m": klines_range(sym, "15m", bt_start - 4 * day, end,
-                                    FUT_HOSTS, "/fapi/v1/klines"),
-                "1h": klines_range(sym, "1h", bt_start - 14 * day, end,
-                                   FUT_HOSTS, "/fapi/v1/klines"),
-                "4h": klines_range(sym, "4h", bt_start - 55 * day, end,
-                                   FUT_HOSTS, "/fapi/v1/klines"),
-            }
-        except Exception as e:
-            print("futures failed, using yahoo:", e)
-            return load_asset("yf", "XAUUSD=X", bt_start, end)
+    if kind == "td":
+        return {
+            "15m": td_range(sym, "15min", bt_start - 4 * day, end),
+            "1h": td_range(sym, "1h", bt_start - 14 * day, end),
+            "4h": td_range(sym, "4h", bt_start - 55 * day, end),
+        }
     f15 = A["yf_frame"](sym, "59d", "15m")
     f1h = A["yf_frame"](sym, "700d", "1h")
     f4h = f1h.resample("4h").agg(
@@ -230,7 +254,7 @@ def main():
             print(key, "load error:", e)
 
     base = run(data, bt_start, lambda now: False)
-    text = report("🧪 باك تيست v4 (ورقي، بدون فلتر الأخبار)",
+    text = report("🧪 باك تيست v5 (ورقي، بدون فلتر الأخبار)",
                   base, bt_start, end)
     if EVENTS:
         ev = [pd.Timestamp(e, tz="UTC") for e in EVENTS]
