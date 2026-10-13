@@ -15,7 +15,7 @@ ASSETS = {
     "BTC": ("bin", "BTCUSDT", "بيتكوين"),
     "ETH": ("bin", "ETHUSDT", "إيثريوم"),
     "SOL": ("bin", "SOLUSDT", "سولانا"),
-    "GOLD": ("fut", "XAUUSDT", "الذهب"),
+    "GOLD": ("td", "XAU/USD", "الذهب"),
     "NDX": ("yf", "^NDX", "ناسداك"),
 }
 TR = {1: "صاعد", -1: "هابط", 0: "عرضي"}
@@ -56,21 +56,25 @@ def bin_klines(sym, tf, n=300):
     raise RuntimeError("binance failed " + sym)
 
 
-def fut_klines(sym, tf, n=300):
-    for host in ("https://fapi.binance.com",
-                 "https://fapi1.binance.com",
-                 "https://fapi2.binance.com",
-                 "https://fapi3.binance.com"):
-        try:
-            r = requests.get(
-                host + "/fapi/v1/klines",
-                params={"symbol": sym, "interval": tf, "limit": n},
-                timeout=20)
-            if r.ok:
-                return to_frame(r.json())
-        except Exception:
-            pass
-    raise RuntimeError("futures failed " + sym)
+def td_frame(sym, interval, n=300):
+    key = os.environ.get("TWELVE_KEY", "")
+    if not key:
+        raise RuntimeError("no TWELVE_KEY")
+    r = requests.get(
+        "https://api.twelvedata.com/time_series",
+        params={"symbol": sym, "interval": interval,
+                "outputsize": n, "timezone": "UTC", "apikey": key},
+        timeout=30)
+    j = r.json()
+    if "values" not in j:
+        raise RuntimeError("twelvedata: " + str(j)[:200])
+    d = pd.DataFrame(j["values"])
+    d["t"] = pd.to_datetime(d["datetime"], utc=True)
+    d = d.set_index("t").sort_index()
+    out = d[["open", "high", "low", "close"]].astype(float)
+    out.columns = ["o", "h", "l", "c"]
+    out["v"] = 0.0
+    return out.iloc[:-1]
 
 
 def yf_frame(sym, period, interval):
@@ -86,12 +90,9 @@ def yf_frame(sym, period, interval):
 def frames(kind, sym):
     if kind == "bin":
         return {tf: bin_klines(sym, tf) for tf in ("15m", "1h", "4h")}
-    if kind == "fut":
-        try:
-            return {tf: fut_klines(sym, tf) for tf in ("15m", "1h", "4h")}
-        except Exception as e:
-            print("futures failed, using yahoo:", e)
-            return frames("yf", "XAUUSD=X")
+    if kind == "td":
+        return {tf: td_frame(sym, iv) for tf, iv in
+                (("15m", "15min"), ("1h", "1h"), ("4h", "4h"))}
     f15 = yf_frame(sym, "5d", "15m")
     f1h = yf_frame(sym, "60d", "1h")
     f4h = f1h.resample("4h").agg(
