@@ -132,10 +132,10 @@ def get_news(st, now, gem_key):
 
         parts = []
         if not c.get("cal"):
-            parts.append("التقويم غير متوفر (فلتر الأخبار معطّل)")
+            parts.append("التقويم غير متوفر (ما في تنبيه أخبار)")
         elif cur:
-            parts.append(f"🚫 خبر قوي الحين ({cur['title']}): "
-                         "إشارات جديدة موقوفة")
+            parts.append(f"⚠️ خبر قوي الحين ({cur['title']}): "
+                         "الإشارات شغالة، انتبه للتذبذب")
         elif nxt and nxt[0] - now < pd.Timedelta(hours=24):
             m = (nxt[0] - now).total_seconds() / 60
             parts.append(f"أقرب خبر قوي: {nxt[1]['title']} بعد {hm(m)}")
@@ -163,8 +163,7 @@ def apply(res, nw):
         if res.get("tier") is None:
             return res
         if nw["blackout"]:
-            res["tier"] = None
-            return res
+            res["obs"] += "\n⚠️ خبر قوي قريب أو جاري، توقع تذبذب"
         b = nw["bias"].get(GROUP.get(res["key"]), 0)
         s = res["side"]
         if b == s:
@@ -198,9 +197,8 @@ def alerts(nw, st, now):
                 out.append(
                     f"⚠️ خبر قوي (USD) بعد {int(mins)} دقيقة: "
                     f"{e['title']}{extra}\n"
-                    "الإشارات الجديدة تتوقف من 30 دقيقة قبله لين 45 دقيقة "
-                    "بعده، والصفقات الورقية المفتوحة تنتبع كالمعتاد "
-                    "(توقع تذبذب قوي).")
+                    "الإشارات والصفقات تستمر عادي، بس توقع تذبذب قوي "
+                    "وحركة سريعة بالوقف.")
         c["sent"] = sent[-30:]
     except Exception as e:
         print("news alerts error:", e)
