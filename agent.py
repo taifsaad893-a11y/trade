@@ -1,6 +1,3 @@
-أكيد. هذا **الكود كامل**، ومقطع طلب Gemini مكتوب بصيغة متعددة الأسطر لتفادي خطأ الأقواس اللي ظهر عندك. انسخه كاملًا:
-
-````python
 import os
 import json
 import math
@@ -971,7 +968,7 @@ def main():
                 headers={"x-goog-api-key": GEMINI_KEY},
                 json={
                     "contents": [
-                        {"parts": [{"text": pr}]}
+                        {"parts": [{"text": pr]}
                     ]
                 },
                 timeout=60,
@@ -997,4 +994,3 @@ def main():
 
 
 main()
-````
