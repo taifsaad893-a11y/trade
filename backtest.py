@@ -5,13 +5,6 @@ import requests
 
 DAYS = 90
 STEP = 2
-EVENTS = []  # اختياري، بتوقيت UTC مثل: "2026-09-16 18:00"
-# تكلفة ذهاب وإياب كنسبة من سعر الدخول (OKX Spot: taker 0.10% لكل جهة)
-# إذا تدخل بأوامر limit خلّيها 0.0016
-COST = {"BTC": 0.0020, "ETH": 0.0020, "SOL": 0.0020,
-        "GOLD": 0.0020, "NDX": 0.0004}
-BEFORE = pd.Timedelta(minutes=30)
-AFTER = pd.Timedelta(minutes=45)
 HOSTS = ["https://data-api.binance.vision", "https://api.binance.com"]
 
 src = open("agent.py", encoding="utf-8").read()
@@ -186,7 +179,7 @@ def btc_dir_at(btc, T, cache):
     return cache[T]
 
 
-def run_asset(key, fr, btc, cache, bt_start, blocked):
+def run_asset(key, fr, btc, cache, bt_start):
     st = {"n": 0, "closed": [], "cool": {}}
     sp = None
     idx = fr["15m"].index
@@ -206,8 +199,6 @@ def run_asset(key, fr, btc, cache, bt_start, blocked):
         if cool and now - pd.Timestamp(cool) < pd.Timedelta(hours=2):
             continue
         if A["market_closed"](key, now):
-            continue
-        if blocked(now):
             continue
         bd = None
         if key in ("ETH", "SOL"):
@@ -244,58 +235,39 @@ def summ(trades):
             f"PF {pf} | هبوط أقصى {dd:.1f}R")
 
 
-def run(data, bt_start, blocked):
+def run_mode(use_ict, data, bt_start):
+    A["USE_ICT"] = use_ict
     cache = {}
     out = {}
     for key, fr in data.items():
-        tr, op = run_asset(key, fr, data.get("BTC"), cache,
-                           bt_start, blocked)
+        tr, op = run_asset(key, fr, data.get("BTC"), cache, bt_start)
         out[key] = tr
-        print(key, len(tr), "closed", "| open at end:", op)
+        print("ICT" if use_ict else "NO-ICT", key, len(tr),
+              "closed | open at end:", op)
     return out
 
 
-def net_trades(gross):
-    res = {}
-    for k, v in gross.items():
-        pct = COST.get(k, 0.001)
-        n = []
-        for t in v:
-            risk = max(abs(t["entry"] - t["stop0"]), 1e-9)
-            t2 = dict(t)
-            t2["r"] = round(t["r"] - pct * t["entry"] / risk, 3)
-            n.append(t2)
-        res[k] = n
-    return res
-
-
-def report(title, gross, bt_start, end):
-    net = net_trades(gross)
-    g_all = [t for v in gross.values() for t in v]
-    n_all = [t for v in net.values() for t in v]
+def report(title, trades, bt_start, end):
+    all_t = [t for v in trades.values() for t in v]
     cut = bt_start + (end - bt_start) * 2 / 3
-    lines = [title,
-             "قبل التكلفة: " + summ(g_all),
-             "بعد التكلفة: " + summ(n_all)]
-    for k, v in net.items():
+    lines = [title, "الكل: " + summ(all_t)]
+    a = [t for t in all_t if pd.Timestamp(t["t_close"]) <= cut]
+    b = [t for t in all_t if pd.Timestamp(t["t_close"]) > cut]
+    lines.append("أول ثلثين: " + summ(a))
+    lines.append("آخر ثلث: " + summ(b))
+    lines.append("شراء فقط: " + summ([t for t in all_t if t["side"] == 1]))
+    lines.append("بيع فقط: " + summ([t for t in all_t if t["side"] == -1]))
+    for sty in ("Breakout", "Pullback", "BreakRetest"):
+        sub = [t for t in all_t if t["style"] == sty]
+        if sub:
+            lines.append(f"{sty}: {summ(sub)}")
+    for k, v in trades.items():
         lines.append(f"{ASSETS[k][2]}: {summ(v)}")
     for tf in ("15m", "1h", "4h"):
-        sub = [t for t in net.get("GOLD", [])
+        sub = [t for t in trades.get("GOLD", [])
                if t.get("tf", "15m") == tf]
         if sub:
             lines.append(f"الذهب {tf}: {summ(sub)}")
-    for sty in ("Breakout", "Retest"):
-        sub = [t for t in n_all if t["style"] == sty]
-        if sub:
-            lines.append(f"{sty}: {summ(sub)}")
-    longs = [t for t in n_all if t["side"] == 1]
-    shorts = [t for t in n_all if t["side"] == -1]
-    lines.append("شراء فقط: " + summ(longs))
-    lines.append("بيع فقط: " + summ(shorts))
-    a = [t for t in n_all if pd.Timestamp(t["t_close"]) <= cut]
-    b = [t for t in n_all if pd.Timestamp(t["t_close"]) > cut]
-    lines.append("أول ثلثين: " + summ(a))
-    lines.append("آخر ثلث: " + summ(b))
     return "\n".join(lines)
 
 
@@ -319,19 +291,14 @@ def main():
         except Exception as e:
             print(key, "load error:", e)
 
-    base = run(data, bt_start, lambda now: False)
-    text = report("🧪 باك تيست v7 (ورقي، بدون فلتر الأخبار)",
-                  base, bt_start, end)
-    if EVENTS:
-        ev = [pd.Timestamp(e, tz="UTC") for e in EVENTS]
-        filt = run(data, bt_start,
-                   lambda now: any(t - BEFORE <= now <= t + AFTER
-                                   for t in ev))
-        text += "\n\n" + report("🧪 مع فلتر الأخبار", filt, bt_start, end)
-    text += (
-        f"\n\nآخر {DAYS} يوم. التكلفة تقديرية (بدون فوائد الاقتراض "
-        "للبيع). النتيجة ما تضمن المستقبل.")
-    send(text)
+    with_ict = run_mode(True, data, bt_start)
+    send(report("🧪 باك تيست v9 | مع ICT (بدون عمولة)",
+                with_ict, bt_start, end))
+    no_ict = run_mode(False, data, bt_start)
+    send(report("🧪 باك تيست v9 | بدون ICT (بدون عمولة)",
+                no_ict, bt_start, end)
+         + f"\n\nآخر {DAYS} يوم. بدون عمولة ولا سبريد ولا فوائد اقتراض، "
+         "فالواقع أسوأ. قارن بين الرسالتين فقط.")
 
 
 main()
