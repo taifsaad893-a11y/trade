@@ -1,7 +1,5 @@
 import os
 import json
-import math
-import tempfile
 import requests
 import pandas as pd
 import yfinance as yf
@@ -153,11 +151,7 @@ def rsi(s, n=14):
     d = s.diff()
     up = d.clip(lower=0).ewm(alpha=1 / n, adjust=False).mean()
     dn = (-d.clip(upper=0)).ewm(alpha=1 / n, adjust=False).mean()
-    rs = up.div(dn.where(dn != 0))
-    out = 100 - 100 / (1 + rs)
-    out = out.mask((dn == 0) & (up > 0), 100.0)
-    out = out.mask((dn == 0) & (up == 0), 50.0)
-    return out
+    return 100 - 100 / (1 + up / dn)
 
 
 def macd_h(s):
@@ -182,8 +176,6 @@ def trend(d):
     if p < e20 < e50:
         return -1
     return 0
-
-
 def swings(d, k=2):
     H = d["h"].values
     L = d["l"].values
@@ -316,8 +308,6 @@ def ict_calc(d15, d1, s, a):
 
     pts = max(-1.0, min(2.5, pts))
     return round(pts, 1), notes
-
-
 A_MIN = 7.5
 USE_MIN_STOP = True
 SPOT_ONLY = False  # True = شراء فقط، False = شراء وبيع (Margin)
@@ -435,15 +425,12 @@ def analyze_core(key, fr, btc_dir, live=None):
             stop = max(float(d15["h"].tail(12).max()), ep + a15) + 0.2 * a15
             risk = stop - ep
             lv = sup_p[0] if (sup_p and sup_p[0] < ep) else lo1
-        if (not math.isfinite(risk) or not math.isfinite(a1) or a1 <= 0
-                or risk <= 0 or risk > 3 * a1):
+        if risk <= 0 or risk > 3 * a1:
             return None
         if USE_MIN_STOP and risk < MIN_RISK.get(key, 0.004) * ep:
             return None
         room = (lv - ep) * s
-        if not math.isfinite(room) or room <= 0:
-            return None
-        rr = min(3.0, room / risk)
+        rr = min(3.0, room / risk) if room > 0 else 3.0
         tps = [ep + s * risk * k for k in (1, 2, 3)]
         return {"entry": ep, "stop": stop, "tps": tps, "rr": round(rr, 1)}
 
@@ -459,7 +446,8 @@ def analyze_core(key, fr, btc_dir, live=None):
         sc += 1 if ok else 0
         if vr is not None:
             sc += 1 if vr >= 1.2 else 0
-        # Missing volume is neutral; it should not add score.
+        else:
+            sc += 0.5
         sc += 0.5 if (price > e200) == (s == 1) else 0
         if btc_dir is not None and key in ("ETH", "SOL"):
             sc += 1 if btc_dir == s else (-1.5 if btc_dir == -s else 0)
@@ -602,48 +590,21 @@ def analyze(key, fr, btc_dir):
     if SPOT_ONLY and res["side"] == -1:
         res["tier"] = None
     return res
-
-
 def load():
     try:
-        with open(STATE_FILE, encoding="utf-8") as f:
+        with open(STATE_FILE) as f:
             st = json.load(f)
-    except FileNotFoundError:
+    except Exception:
         st = {}
-    except (json.JSONDecodeError, UnicodeDecodeError) as e:
-        raise RuntimeError(
-            f"{STATE_FILE} is unreadable; preserving it instead of resetting trade state"
-        ) from e
-
-    if not isinstance(st, dict):
-        raise RuntimeError(f"{STATE_FILE} must contain a JSON object")
-
-    defaults = (("active", {}), ("watch", {}), ("cool", {}),
-                ("closed", []), ("n", 0))
-    for key, value in defaults:
-        st.setdefault(key, value)
-    for key in ("active", "watch", "cool"):
-        if not isinstance(st[key], dict):
-            raise RuntimeError(f"{STATE_FILE}: '{key}' must be an object")
-    if not isinstance(st["closed"], list):
-        raise RuntimeError(f"{STATE_FILE}: 'closed' must be a list")
-    if not isinstance(st["n"], int) or isinstance(st["n"], bool):
-        raise RuntimeError(f"{STATE_FILE}: 'n' must be an integer")
+    for k, v in (("active", {}), ("watch", {}), ("cool", {}),
+                 ("closed", []), ("n", 0)):
+        st.setdefault(k, v)
     return st
 
 
 def save(st):
-    directory = os.path.dirname(os.path.abspath(STATE_FILE))
-    fd, tmp_path = tempfile.mkstemp(prefix=".state-", suffix=".tmp", dir=directory)
-    try:
-        with os.fdopen(fd, "w", encoding="utf-8") as f:
-            json.dump(st, f, ensure_ascii=False, indent=1)
-            f.flush()
-            os.fsync(f.fileno())
-        os.replace(tmp_path, STATE_FILE)
-    finally:
-        if os.path.exists(tmp_path):
-            os.unlink(tmp_path)
+    with open(STATE_FILE, "w") as f:
+        json.dump(st, f, ensure_ascii=False, indent=1)
 
 
 def realized(sp, exit_r):
@@ -781,32 +742,18 @@ def manage(st, sp, d15, d1, price, now):
         for i in range(3):
             if sp["hits"][i]:
                 continue
-            target_hit = (hi >= sp["tps"][i]) if s == 1 else (lo <= sp["tps"][i])
-            if not target_hit:
+            if (hi >= sp["tps"][i]) if s == 1 else (lo <= sp["tps"][i]):
+                sp["hits"][i] = True
+                ev.append(f"🎯 {pid} {name}: TP{i + 1} HIT "
+                          f"({fmt(sp['tps'][i])})")
+                if i == 2:
+                    finish(st, sp, "CLOSED", 0, "TP3", now)
+                    ev.append(f"✅ {pid}: إغلاق كامل | R ورقي {sp['r']}")
+                    return ev
+                sp["stop"] = sp["entry"] if i == 0 else sp["tps"][0]
+                ev.append(f"🔒 {pid}: MOVE SL → {fmt(sp['stop'])}")
+            else:
                 break
-
-            sp["hits"][i] = True
-            ev.append(f"🎯 {pid} {name}: TP{i + 1} HIT "
-                      f"({fmt(sp['tps'][i])})")
-            if i == 2:
-                finish(st, sp, "CLOSED", 0, "TP3", now)
-                ev.append(f"✅ {pid}: إغلاق كامل | R ورقي {sp['r']}")
-                return ev
-
-            sp["stop"] = sp["entry"] if i == 0 else sp["tps"][0]
-            ev.append(f"🔒 {pid}: MOVE SL → {fmt(sp['stop'])}")
-
-            # OHLC bars do not reveal the order of intrabar price moves.
-            # Count at most one target per candle; if the newly moved stop
-            # was also touched, conservatively close the remaining position.
-            moved_stop_hit = (lo <= sp["stop"]) if s == 1 else (hi >= sp["stop"])
-            if moved_stop_hit:
-                er = (sp["stop"] - sp["entry"]) * s / risk0
-                finish(st, sp, "CLOSED", er, "STOP", now)
-                ev.append(f"🛑 {pid} {name}: الوقف المتحرك انلمس بنفس الشمعة "
-                          f"| R ورقي {sp['r']}")
-                return ev
-            break
     if sp["state"] == "ARMED":
         if now - pd.Timestamp(sp["t_decl"]) > pd.Timedelta(hours=arm_h):
             sp["state"] = "EXPIRED"
@@ -849,8 +796,6 @@ def stats(cl):
             if len(sub) >= 10:
                 out.append(line(sub, g))
     return "\n".join(out) + "\nعينة صغيرة، لا تعتبرها دليل تفوق."
-
-
 def msg_setup(res, sp, name):
     side = "LONG" if sp["side"] == 1 else "SHORT"
     head = ("🟢 A ENTRY (ورقي)" if sp["state"] == "ENTERED"
@@ -964,15 +909,8 @@ def main():
             pr = ("علّق بالعراقي بجملتين بالكثير على هالتنبيهات. "
                   "لا تغيّر الأرقام ولا تخترع أرقام ولا تضمن ربح:\n" + text)
             r = requests.post(
-                url,
-                headers={"x-goog-api-key": GEMINI_KEY},
-                json={
-                    "contents": [
-                        {"parts": [{"text": pr]}
-                    ]
-                },
-                timeout=60,
-            )
+                url, params={"key": GEMINI_KEY},
+                json={"contents": [{"parts": [{"text": pr}]}]}, timeout=60)
             j = r.json()
             if "candidates" in j:
                 text += ("\n\n💬 " +
