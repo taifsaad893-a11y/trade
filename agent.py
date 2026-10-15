@@ -1,5 +1,7 @@
 import os
 import json
+import math
+import tempfile
 import requests
 import pandas as pd
 import yfinance as yf
@@ -22,10 +24,8 @@ TR = {1: "صاعد", -1: "هابط", 0: "عرضي"}
 OKX_BARS = {"15m": "15m", "1h": "1H", "4h": "4H", "1d": "1Dutc"}
 TD_BARS = {"15m": "15min", "1h": "1h", "4h": "4h", "1d": "1day"}
 
-
 def fmt(x):
     return f"{x:,.2f}" if abs(x) >= 10 else f"{x:.4f}"
-
 
 def market_closed(key, now):
     if key != "GOLD":
@@ -34,14 +34,12 @@ def market_closed(key, now):
     hr = now.hour
     return wd == 5 or (wd == 6 and hr < 22) or (wd == 4 and hr >= 21)
 
-
 def to_frame(rows):
     d = pd.DataFrame(rows).iloc[:, [0, 1, 2, 3, 4, 5, 9]]
     d.columns = ["t", "o", "h", "l", "c", "v", "tb"]
     d = d.astype(float)
     d.index = pd.to_datetime(d["t"], unit="ms", utc=True)
     return d.drop(columns="t").iloc[:-1]
-
 
 def bin_klines(sym, tf, n=300):
     for host in ("https://data-api.binance.vision",
@@ -57,7 +55,6 @@ def bin_klines(sym, tf, n=300):
             pass
     raise RuntimeError("binance failed " + sym)
 
-
 def okx_klines(inst, tf, n=300):
     r = requests.get(
         "https://www.okx.com/api/v5/market/candles",
@@ -72,7 +69,6 @@ def okx_klines(inst, tf, n=300):
     d = d.astype(float)
     d.index = pd.to_datetime(d["t"], unit="ms", utc=True)
     return d.drop(columns="t").sort_index()
-
 
 def td_frame(sym, tf, n=300):
     key = os.environ.get("TWELVE_KEY", "")
@@ -94,7 +90,6 @@ def td_frame(sym, tf, n=300):
     out["v"] = 0.0
     return out.iloc[:-1]
 
-
 def yf_frame(sym, period, interval):
     d = yf.download(sym, period=period, interval=interval, progress=False)
     d.columns = [c[0] if isinstance(c, tuple) else c for c in d.columns]
@@ -104,7 +99,6 @@ def yf_frame(sym, period, interval):
     d.index = pd.to_datetime(d.index, utc=True)
     return d.iloc[:-1]
 
-
 def weekly(d):
     w = d.resample("W-SUN").agg(
         {"o": "first", "h": "max", "l": "min",
@@ -113,14 +107,12 @@ def weekly(d):
         w = w.iloc[:-1]
     return w
 
-
 def with_daily(fr, getter):
     try:
         fr["1d"] = getter()
     except Exception as e:
         print("1d failed:", e)
     return fr
-
 
 def frames(kind, sym):
     if kind == "bin":
@@ -142,29 +134,28 @@ def frames(kind, sym):
          "c": "last", "v": "sum"}).dropna().iloc[:-1]
     return {"15m": f15, "1h": f1h, "4h": f4h}
 
-
 def ema(s, n):
     return s.ewm(span=n, adjust=False).mean()
-
 
 def rsi(s, n=14):
     d = s.diff()
     up = d.clip(lower=0).ewm(alpha=1 / n, adjust=False).mean()
     dn = (-d.clip(upper=0)).ewm(alpha=1 / n, adjust=False).mean()
-    return 100 - 100 / (1 + up / dn)
-
+    rs = up.div(dn.where(dn != 0))
+    out = 100 - 100 / (1 + rs)
+    out = out.mask((dn == 0) & (up > 0), 100.0)
+    out = out.mask((dn == 0) & (up == 0), 50.0)
+    return out
 
 def macd_h(s):
     m = ema(s, 12) - ema(s, 26)
     return m - ema(m, 9)
-
 
 def atr(d, n=14):
     pc = d["c"].shift(1)
     tr = pd.concat([d["h"] - d["l"], (d["h"] - pc).abs(),
                     (d["l"] - pc).abs()], axis=1).max(axis=1)
     return tr.rolling(n).mean()
-
 
 def trend(d):
     c = d["c"]
@@ -176,6 +167,7 @@ def trend(d):
     if p < e20 < e50:
         return -1
     return 0
+
 def swings(d, k=2):
     H = d["h"].values
     L = d["l"].values
@@ -188,14 +180,12 @@ def swings(d, k=2):
             ls.append((i, float(L[i])))
     return hs, ls
 
-
 def ict(d15, d1, s, a):
     try:
         return ict_calc(d15, d1, s, a)
     except Exception as e:
         print("ict error:", e)
         return 0.0, []
-
 
 def ict_calc(d15, d1, s, a):
     pts = 0.0
@@ -308,13 +298,13 @@ def ict_calc(d15, d1, s, a):
 
     pts = max(-1.0, min(2.5, pts))
     return round(pts, 1), notes
+
 A_MIN = 7.5
 USE_MIN_STOP = True
 SPOT_ONLY = False  # True = شراء فقط، False = شراء وبيع (Margin)
 GOLD_MTF = True    # True = الذهب يختار أفضل فريم دخول
 MIN_RISK = {"BTC": 0.004, "ETH": 0.004, "SOL": 0.005,
             "GOLD": 0.002, "NDX": 0.0015}
-
 
 def flow_stats(d15):
     try:
@@ -339,7 +329,6 @@ def flow_stats(d15):
     except Exception:
         return None
 
-
 def vwap_day(d15):
     try:
         day = d15.index[-1].normalize()
@@ -353,7 +342,6 @@ def vwap_day(d15):
         return float((tp * v).sum() / v.sum())
     except Exception:
         return None
-
 
 def sr_levels(d1, a1, price):
     try:
@@ -390,7 +378,6 @@ def sr_levels(d1, a1, price):
     except Exception:
         return None, None
 
-
 def analyze_core(key, fr, btc_dir, live=None):
     d15, d1, d4 = fr["15m"], fr["1h"], fr["4h"]
     c = d15["c"]
@@ -425,12 +412,15 @@ def analyze_core(key, fr, btc_dir, live=None):
             stop = max(float(d15["h"].tail(12).max()), ep + a15) + 0.2 * a15
             risk = stop - ep
             lv = sup_p[0] if (sup_p and sup_p[0] < ep) else lo1
-        if risk <= 0 or risk > 3 * a1:
+        if (not math.isfinite(risk) or not math.isfinite(a1) or a1 <= 0
+                or risk <= 0 or risk > 3 * a1):
             return None
         if USE_MIN_STOP and risk < MIN_RISK.get(key, 0.004) * ep:
             return None
         room = (lv - ep) * s
-        rr = min(3.0, room / risk) if room > 0 else 3.0
+        if not math.isfinite(room) or room <= 0:
+            return None
+        rr = min(3.0, room / risk)
         tps = [ep + s * risk * k for k in (1, 2, 3)]
         return {"entry": ep, "stop": stop, "tps": tps, "rr": round(rr, 1)}
 
@@ -446,8 +436,7 @@ def analyze_core(key, fr, btc_dir, live=None):
         sc += 1 if ok else 0
         if vr is not None:
             sc += 1 if vr >= 1.2 else 0
-        else:
-            sc += 0.5
+        # Missing volume is neutral; it should not add score.
         sc += 0.5 if (price > e200) == (s == 1) else 0
         if btc_dir is not None and key in ("ETH", "SOL"):
             sc += 1 if btc_dir == s else (-1.5 if btc_dir == -s else 0)
@@ -542,7 +531,6 @@ def analyze_core(key, fr, btc_dir, live=None):
         res.update(tier="B", cond=cond, inv=inv)
     return res
 
-
 def gold_profiles(fr):
     out = [("15m", {"15m": fr["15m"], "1h": fr["1h"], "4h": fr["4h"]})]
     d1d = fr.get("1d")
@@ -552,7 +540,6 @@ def gold_profiles(fr):
         if len(wk) >= 35:
             out.append(("4h", {"15m": fr["4h"], "1h": d1d, "4h": wk}))
     return out
-
 
 def gold_best(fr, btc_dir):
     live = float(fr["15m"]["c"].iloc[-1])
@@ -580,7 +567,6 @@ def gold_best(fr, btc_dir):
         best["obs"] += " | باقي الفريمات " + ", ".join(others)
     return best
 
-
 def analyze(key, fr, btc_dir):
     if key == "GOLD" and GOLD_MTF:
         res = gold_best(fr, btc_dir)
@@ -590,28 +576,51 @@ def analyze(key, fr, btc_dir):
     if SPOT_ONLY and res["side"] == -1:
         res["tier"] = None
     return res
+
 def load():
     try:
-        with open(STATE_FILE) as f:
+        with open(STATE_FILE, encoding="utf-8") as f:
             st = json.load(f)
-    except Exception:
+    except FileNotFoundError:
         st = {}
-    for k, v in (("active", {}), ("watch", {}), ("cool", {}),
-                 ("closed", []), ("n", 0)):
-        st.setdefault(k, v)
+    except (json.JSONDecodeError, UnicodeDecodeError) as e:
+        raise RuntimeError(
+            f"{STATE_FILE} is unreadable; preserving it instead of resetting trade state"
+        ) from e
+
+    if not isinstance(st, dict):
+        raise RuntimeError(f"{STATE_FILE} must contain a JSON object")
+
+    defaults = (("active", {}), ("watch", {}), ("cool", {}),
+                ("closed", []), ("n", 0))
+    for key, value in defaults:
+        st.setdefault(key, value)
+    for key in ("active", "watch", "cool"):
+        if not isinstance(st[key], dict):
+            raise RuntimeError(f"{STATE_FILE}: '{key}' must be an object")
+    if not isinstance(st["closed"], list):
+        raise RuntimeError(f"{STATE_FILE}: 'closed' must be a list")
+    if not isinstance(st["n"], int) or isinstance(st["n"], bool):
+        raise RuntimeError(f"{STATE_FILE}: 'n' must be an integer")
     return st
 
-
 def save(st):
-    with open(STATE_FILE, "w") as f:
-        json.dump(st, f, ensure_ascii=False, indent=1)
-
+    directory = os.path.dirname(os.path.abspath(STATE_FILE))
+    fd, tmp_path = tempfile.mkstemp(prefix=".state-", suffix=".tmp", dir=directory)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump(st, f, ensure_ascii=False, indent=1)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp_path, STATE_FILE)
+    finally:
+        if os.path.exists(tmp_path):
+            os.unlink(tmp_path)
 
 def realized(sp, exit_r):
     done = sum(k + 1 for k in range(3) if sp["hits"][k]) / 3
     left = (3 - sum(sp["hits"])) / 3
     return round(done + left * exit_r, 2)
-
 
 def finish(st, sp, state, exit_r, label, now):
     sp["state"] = state
@@ -625,7 +634,6 @@ def finish(st, sp, state, exit_r, label, now):
         "tf": sp.get("tf", "15m"),
         "t_decl": sp["t_decl"], "t_close": now.isoformat()})
     st["cool"][sp["key"]] = now.isoformat()
-
 
 def trade_line(c):
     h = c.get("hits") or [False, False, False]
@@ -654,7 +662,6 @@ def trade_line(c):
             f"فريم {c.get('tf', '15m')}\n"
             f"   دخول {fmt(c['entry'])} | {what}\n"
             f"   النتيجة: {c['r']:+.2f}R")
-
 
 def weekly_report(st, now):
     try:
@@ -691,7 +698,6 @@ def weekly_report(st, now):
     except Exception as e:
         print("report error:", e)
 
-
 def open_setup(st, res, t_last):
     st["n"] += 1
     pl = res["plan"]
@@ -706,7 +712,6 @@ def open_setup(st, res, t_last):
         "state": "ENTERED" if res["tier"] == "A" else "ARMED",
         "zone": res.get("zone"),
     }
-
 
 def manage(st, sp, d15, d1, price, now):
     ev = []
@@ -742,18 +747,32 @@ def manage(st, sp, d15, d1, price, now):
         for i in range(3):
             if sp["hits"][i]:
                 continue
-            if (hi >= sp["tps"][i]) if s == 1 else (lo <= sp["tps"][i]):
-                sp["hits"][i] = True
-                ev.append(f"🎯 {pid} {name}: TP{i + 1} HIT "
-                          f"({fmt(sp['tps'][i])})")
-                if i == 2:
-                    finish(st, sp, "CLOSED", 0, "TP3", now)
-                    ev.append(f"✅ {pid}: إغلاق كامل | R ورقي {sp['r']}")
-                    return ev
-                sp["stop"] = sp["entry"] if i == 0 else sp["tps"][0]
-                ev.append(f"🔒 {pid}: MOVE SL → {fmt(sp['stop'])}")
-            else:
+            target_hit = (hi >= sp["tps"][i]) if s == 1 else (lo <= sp["tps"][i])
+            if not target_hit:
                 break
+
+            sp["hits"][i] = True
+            ev.append(f"🎯 {pid} {name}: TP{i + 1} HIT "
+                      f"({fmt(sp['tps'][i])})")
+            if i == 2:
+                finish(st, sp, "CLOSED", 0, "TP3", now)
+                ev.append(f"✅ {pid}: إغلاق كامل | R ورقي {sp['r']}")
+                return ev
+
+            sp["stop"] = sp["entry"] if i == 0 else sp["tps"][0]
+            ev.append(f"🔒 {pid}: MOVE SL → {fmt(sp['stop'])}")
+
+            # OHLC bars do not reveal the order of intrabar price moves.
+            # Count at most one target per candle; if the newly moved stop
+            # was also touched, conservatively close the remaining position.
+            moved_stop_hit = (lo <= sp["stop"]) if s == 1 else (hi >= sp["stop"])
+            if moved_stop_hit:
+                er = (sp["stop"] - sp["entry"]) * s / risk0
+                finish(st, sp, "CLOSED", er, "STOP", now)
+                ev.append(f"🛑 {pid} {name}: الوقف المتحرك انلمس بنفس الشمعة "
+                          f"| R ورقي {sp['r']}")
+                return ev
+            break
     if sp["state"] == "ARMED":
         if now - pd.Timestamp(sp["t_decl"]) > pd.Timedelta(hours=arm_h):
             sp["state"] = "EXPIRED"
@@ -770,7 +789,6 @@ def manage(st, sp, d15, d1, price, now):
             ev.append(f"🚪 {pid} {name}: EARLY EXIT @ {fmt(price)} "
                       f"({why}) | R ورقي {sp['r']}")
     return ev
-
 
 def stats(cl):
     def line(x, nm):
@@ -796,6 +814,7 @@ def stats(cl):
             if len(sub) >= 10:
                 out.append(line(sub, g))
     return "\n".join(out) + "\nعينة صغيرة، لا تعتبرها دليل تفوق."
+
 def msg_setup(res, sp, name):
     side = "LONG" if sp["side"] == 1 else "SHORT"
     head = ("🟢 A ENTRY (ورقي)" if sp["state"] == "ENTERED"
@@ -817,14 +836,12 @@ def msg_setup(res, sp, name):
         f"الإلغاء: {'تحت' if sp['side'] == 1 else 'فوق'} {fmt(sp['stop'])}\n"
         f"(تتبع ورقي افتراضي، مو دخول فعلي)")
 
-
 def msg_watch(res, name):
     side = "LONG" if res["side"] == 1 else "SHORT"
     return (f"🟡 B+ مراقبة | {name} {side} (مو دخول لسا)\n"
             f"السعر: {fmt(res['price'])} | سكور {res['score']}/10\n"
             f"التأكيد المطلوب: {res['cond']}\n"
             f"الإلغاء: {res['inv']}\n{res['obs']}")
-
 
 def main():
     st = load()
@@ -909,8 +926,8 @@ def main():
             pr = ("علّق بالعراقي بجملتين بالكثير على هالتنبيهات. "
                   "لا تغيّر الأرقام ولا تخترع أرقام ولا تضمن ربح:\n" + text)
             r = requests.post(
-                url, params={"key": GEMINI_KEY},
-                json={"contents": [{"parts": [{"text": pr}]}]}, timeout=60)
+                url, headers={"x-goog-api-key": GEMINI_KEY},
+                json={"contents": [{"parts": [{"text": pr]}]}, timeout=60)
             j = r.json()
             if "candidates" in j:
                 text += ("\n\n💬 " +
@@ -929,6 +946,5 @@ def main():
         print("no events")
     weekly_report(st, now)
     save(st)
-
 
 main()
