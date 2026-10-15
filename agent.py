@@ -15,10 +15,12 @@ ASSETS = {
     "BTC": ("bin", "BTCUSDT", "بيتكوين"),
     "ETH": ("bin", "ETHUSDT", "إيثريوم"),
     "SOL": ("bin", "SOLUSDT", "سولانا"),
-    "GOLD": ("td", "XAU/USD", "الذهب"),
+    "GOLD": ("okx", "XAU-USDT", "الذهب"),
     "NDX": ("yf", "^NDX", "ناسداك"),
 }
 TR = {1: "صاعد", -1: "هابط", 0: "عرضي"}
+OKX_BARS = {"15m": "15m", "1h": "1H", "4h": "4H", "1d": "1Dutc"}
+TD_BARS = {"15m": "15min", "1h": "1h", "4h": "4h", "1d": "1day"}
 
 
 def fmt(x):
@@ -56,13 +58,29 @@ def bin_klines(sym, tf, n=300):
     raise RuntimeError("binance failed " + sym)
 
 
-def td_frame(sym, interval, n=300):
+def okx_klines(inst, tf, n=300):
+    r = requests.get(
+        "https://www.okx.com/api/v5/market/candles",
+        params={"instId": inst, "bar": OKX_BARS[tf], "limit": n},
+        timeout=20)
+    j = r.json()
+    if j.get("code") != "0" or not j.get("data"):
+        raise RuntimeError("okx: " + str(j)[:150])
+    rows = [x for x in j["data"] if x[8] == "1"]
+    d = pd.DataFrame(rows).iloc[:, :6]
+    d.columns = ["t", "o", "h", "l", "c", "v"]
+    d = d.astype(float)
+    d.index = pd.to_datetime(d["t"], unit="ms", utc=True)
+    return d.drop(columns="t").sort_index()
+
+
+def td_frame(sym, tf, n=300):
     key = os.environ.get("TWELVE_KEY", "")
     if not key:
         raise RuntimeError("no TWELVE_KEY")
     r = requests.get(
         "https://api.twelvedata.com/time_series",
-        params={"symbol": sym, "interval": interval,
+        params={"symbol": sym, "interval": TD_BARS[tf],
                 "outputsize": n, "timezone": "UTC", "apikey": key},
         timeout=30)
     j = r.json()
@@ -87,12 +105,36 @@ def yf_frame(sym, period, interval):
     return d.iloc[:-1]
 
 
+def weekly(d):
+    w = d.resample("W-SUN").agg(
+        {"o": "first", "h": "max", "l": "min",
+         "c": "last", "v": "sum"}).dropna()
+    if len(d) and len(w) and d.index[-1].weekday() != 6:
+        w = w.iloc[:-1]
+    return w
+
+
+def with_daily(fr, getter):
+    try:
+        fr["1d"] = getter()
+    except Exception as e:
+        print("1d failed:", e)
+    return fr
+
+
 def frames(kind, sym):
     if kind == "bin":
         return {tf: bin_klines(sym, tf) for tf in ("15m", "1h", "4h")}
+    if kind == "okx":
+        try:
+            fr = {tf: okx_klines(sym, tf) for tf in ("15m", "1h", "4h")}
+        except Exception as e:
+            print("okx failed, trying twelvedata:", e)
+            return frames("td", "XAU/USD")
+        return with_daily(fr, lambda: okx_klines(sym, "1d"))
     if kind == "td":
-        return {tf: td_frame(sym, iv) for tf, iv in
-                (("15m", "15min"), ("1h", "1h"), ("4h", "4h"))}
+        fr = {tf: td_frame(sym, tf) for tf in ("15m", "1h", "4h")}
+        return with_daily(fr, lambda: td_frame(sym, "1d"))
     f15 = yf_frame(sym, "5d", "15m")
     f1h = yf_frame(sym, "60d", "1h")
     f4h = f1h.resample("4h").agg(
@@ -268,6 +310,8 @@ def ict_calc(d15, d1, s, a):
     return round(pts, 1), notes
 A_MIN = 7.5
 USE_MIN_STOP = True
+SPOT_ONLY = False  # True = شراء فقط، False = شراء وبيع (Margin)
+GOLD_MTF = True    # True = الذهب يختار أفضل فريم دخول
 MIN_RISK = {"BTC": 0.004, "ETH": 0.004, "SOL": 0.005,
             "GOLD": 0.002, "NDX": 0.0015}
 
@@ -347,10 +391,10 @@ def sr_levels(d1, a1, price):
         return None, None
 
 
-def analyze(key, fr, btc_dir):
+def analyze_core(key, fr, btc_dir, live=None):
     d15, d1, d4 = fr["15m"], fr["1h"], fr["4h"]
     c = d15["c"]
-    price = float(c.iloc[-1])
+    price = float(live) if live is not None else float(c.iloc[-1])
     a15 = float(atr(d15).iloc[-1])
     a1 = float(atr(d1).iloc[-1])
     t4, t1 = trend(d4), trend(d1)
@@ -488,14 +532,63 @@ def analyze(key, fr, btc_dir):
         if s == 1:
             sw = float(d15["l"].tail(12).min())
             cond = (f"ريتست {fmt(lvl)} وثبات فوقه" if brk
-                    else f"إغلاق شمعة 15m فوق {fmt(lvl)} مع فوليوم")
+                    else f"إغلاق شمعة فوق {fmt(lvl)} مع فوليوم")
             inv = f"كسر {fmt(sw)}"
         else:
             sw = float(d15["h"].tail(12).max())
             cond = (f"ريتست {fmt(lvl)} ورفض تحته" if brk
-                    else f"إغلاق شمعة 15m تحت {fmt(lvl)} مع فوليوم")
+                    else f"إغلاق شمعة تحت {fmt(lvl)} مع فوليوم")
             inv = f"اختراق {fmt(sw)}"
         res.update(tier="B", cond=cond, inv=inv)
+    return res
+
+
+def gold_profiles(fr):
+    out = [("15m", {"15m": fr["15m"], "1h": fr["1h"], "4h": fr["4h"]})]
+    d1d = fr.get("1d")
+    if d1d is not None and len(d1d) >= 60 and len(fr["4h"]) >= 60:
+        out.append(("1h", {"15m": fr["1h"], "1h": fr["4h"], "4h": d1d}))
+        wk = weekly(d1d)
+        if len(wk) >= 35:
+            out.append(("4h", {"15m": fr["4h"], "1h": d1d, "4h": wk}))
+    return out
+
+
+def gold_best(fr, btc_dir):
+    live = float(fr["15m"]["c"].iloc[-1])
+    cands = []
+    for name, f in gold_profiles(fr):
+        try:
+            r = analyze_core("GOLD", f, btc_dir,
+                             None if name == "15m" else live)
+        except Exception as e:
+            print("gold", name, "error:", e)
+            continue
+        r["tf"] = name
+        cands.append(r)
+    if not cands:
+        raise RuntimeError("no gold profile")
+    rank = {"A": 3, "ARMED": 2, "B": 1, None: 0}
+    order = {"15m": 0, "1h": 1, "4h": 2}
+    cands.sort(key=lambda r: (rank[r["tier"]], r["score"],
+                              order[r["tf"]]), reverse=True)
+    best = cands[0]
+    others = [f"{r['tf']}: {r['score']}/10" for r in cands
+              if r is not best]
+    best["obs"] += f"\nفريم الدخول: {best['tf']}"
+    if others:
+        best["obs"] += " | باقي الفريمات " + ", ".join(others)
+    return best
+
+
+def analyze(key, fr, btc_dir):
+    if key == "GOLD" and GOLD_MTF:
+        res = gold_best(fr, btc_dir)
+    else:
+        res = analyze_core(key, fr, btc_dir)
+        res["tf"] = "15m"
+    if SPOT_ONLY and res["side"] == -1:
+        res["tier"] = None
     return res
 def load():
     try:
@@ -529,6 +622,7 @@ def finish(st, sp, state, exit_r, label, now):
         "style": sp["style"], "entry": sp["entry"],
         "stop0": sp["stop0"], "tps": sp["tps"],
         "hits": list(sp["hits"]), "r": sp["r"], "exit": label,
+        "tf": sp.get("tf", "15m"),
         "t_decl": sp["t_decl"], "t_close": now.isoformat()})
     st["cool"][sp["key"]] = now.isoformat()
 
@@ -556,7 +650,8 @@ def trade_line(c):
         ico = "🟡"
     else:
         ico = "✅"
-    return (f"{ico} {c['id']} | {nm} {sd} | {c['style']}\n"
+    return (f"{ico} {c['id']} | {nm} {sd} | {c['style']} | "
+            f"فريم {c.get('tf', '15m')}\n"
             f"   دخول {fmt(c['entry'])} | {what}\n"
             f"   النتيجة: {c['r']:+.2f}R")
 
@@ -603,6 +698,7 @@ def open_setup(st, res, t_last):
     return {
         "id": f"{res['key']}-{st['n']:03d}", "key": res["key"],
         "side": res["side"], "style": res["style"],
+        "tf": res.get("tf", "15m"),
         "entry": pl["entry"], "stop": pl["stop"], "stop0": pl["stop"],
         "tps": pl["tps"], "hits": [False, False, False],
         "rr": pl["rr"], "score": res["score"],
@@ -617,6 +713,9 @@ def manage(st, sp, d15, d1, price, now):
     s = sp["side"]
     name = ASSETS[sp["key"]][2]
     pid = sp["id"]
+    tf = sp.get("tf", "15m")
+    arm_h = {"15m": 4, "1h": 12, "4h": 48}.get(tf, 4)
+    hold_h = {"15m": 24, "1h": 72, "4h": 240}.get(tf, 24)
     risk0 = abs(sp["entry"] - sp["stop0"])
     cs = d15[d15.index > pd.Timestamp(sp.get("seen", sp["t0"]))]
     for ts, k in cs.iterrows():
@@ -656,14 +755,14 @@ def manage(st, sp, d15, d1, price, now):
             else:
                 break
     if sp["state"] == "ARMED":
-        if now - pd.Timestamp(sp["t_decl"]) > pd.Timedelta(hours=4):
+        if now - pd.Timestamp(sp["t_decl"]) > pd.Timedelta(hours=arm_h):
             sp["state"] = "EXPIRED"
             ev.append(f"⌛ {pid} {name}: انتهت بدون دخول")
         return ev
     if sp["state"] == "ENTERED":
         age = now - pd.Timestamp(sp["t0"])
-        lim = pd.Timedelta(hours=48 if sp["hits"][0] else 24)
-        flip = trend(d1) == -s and not sp["hits"][0]
+        lim = pd.Timedelta(hours=hold_h * (2 if sp["hits"][0] else 1))
+        flip = (tf == "15m" and trend(d1) == -s and not sp["hits"][0])
         if age > lim or flip:
             er = (price - sp["entry"]) * s / risk0
             finish(st, sp, "CLOSED", er, "EARLY EXIT", now)
@@ -707,7 +806,8 @@ def msg_setup(res, sp, name):
                 f"{fmt(sp['zone'][1])}\n")
     return (
         f"{head} | {name} {side}\n"
-        f"ID: {sp['id']} | نوع: {sp['style']}\n"
+        f"ID: {sp['id']} | نوع: {sp['style']} | "
+        f"فريم الدخول: {sp.get('tf', '15m')}\n"
         f"السعر الآن: {fmt(res['price'])}\n{zone}"
         f"دخول: {fmt(sp['entry'])} | وقف: {fmt(sp['stop'])}\n"
         f"TP1 {fmt(sp['tps'][0])} | TP2 {fmt(sp['tps'][1])} | "
@@ -778,6 +878,7 @@ def main():
         res = news.apply(res, nw)
         sd = "LONG" if res["side"] == 1 else "SHORT"
         summary.append(f"{name}: {sd} سكور {res['score']}/10 "
+                       f"| فريم {res.get('tf', '15m')} "
                        f"| سعر {fmt(res['price'])}")
         if res["tier"] in ("A", "ARMED"):
             sp = open_setup(st, res, d15.index[-1])
