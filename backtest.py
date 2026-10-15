@@ -6,7 +6,8 @@ import requests
 DAYS = 90
 STEP = 2
 EVENTS = []  # اختياري، بتوقيت UTC مثل: "2026-09-16 18:00"
-# تكلفة تقريبية ذهاب وإياب (OKX Spot: 0.10% taker لكل جهة)
+# تكلفة ذهاب وإياب كنسبة من سعر الدخول (OKX Spot: taker 0.10% لكل جهة)
+# إذا تدخل بأوامر limit خلّيها 0.0016
 COST = {"BTC": 0.0020, "ETH": 0.0020, "SOL": 0.0020,
         "GOLD": 0.0020, "NDX": 0.0004}
 BEFORE = pd.Timedelta(minutes=30)
@@ -54,7 +55,7 @@ def klines_range(sym, tf, start, end):
 
 
 def okx_range(inst, tf, start, end):
-    bar = {"15m": "15m", "1h": "1H", "4h": "4H"}[tf]
+    bar = {"15m": "15m", "1h": "1H", "4h": "4H", "1d": "1Dutc"}[tf]
     rows = []
     after = str(int(end.timestamp() * 1000))
     start_ms = int(start.timestamp() * 1000)
@@ -84,8 +85,9 @@ def okx_range(inst, tf, start, end):
     return d[d.index >= start]
 
 
-def td_range(sym, interval, start, end):
+def td_range(sym, tf, start, end):
     key = os.environ["TWELVE_KEY"]
+    interval = {"15m": "15min", "1h": "1h", "4h": "4h", "1d": "1day"}[tf]
     parts = []
     cur_end = end
     for _ in range(6):
@@ -129,7 +131,7 @@ def load_asset(kind, sym, bt_start, end):
         }
     if kind == "okx":
         try:
-            return {
+            fr = {
                 "15m": okx_range(sym, "15m", bt_start - 4 * day, end),
                 "1h": okx_range(sym, "1h", bt_start - 14 * day, end),
                 "4h": okx_range(sym, "4h", bt_start - 55 * day, end),
@@ -137,12 +139,22 @@ def load_asset(kind, sym, bt_start, end):
         except Exception as e:
             print("okx failed, trying twelvedata:", e)
             return load_asset("td", "XAU/USD", bt_start, end)
+        try:
+            fr["1d"] = okx_range(sym, "1d", bt_start - 420 * day, end)
+        except Exception as e:
+            print("1d failed:", e)
+        return fr
     if kind == "td":
-        return {
-            "15m": td_range(sym, "15min", bt_start - 4 * day, end),
+        fr = {
+            "15m": td_range(sym, "15m", bt_start - 4 * day, end),
             "1h": td_range(sym, "1h", bt_start - 14 * day, end),
             "4h": td_range(sym, "4h", bt_start - 55 * day, end),
         }
+        try:
+            fr["1d"] = td_range(sym, "1d", bt_start - 420 * day, end)
+        except Exception as e:
+            print("1d failed:", e)
+        return fr
     f15 = A["yf_frame"](sym, "59d", "15m")
     f1h = A["yf_frame"](sym, "700d", "1h")
     f4h = f1h.resample("4h").agg(
@@ -200,8 +212,12 @@ def run_asset(key, fr, btc, cache, bt_start, blocked):
         bd = None
         if key in ("ETH", "SOL"):
             bd = btc_dir_at(btc, T, cache)
+        frs = {"15m": d15, "1h": d1, "4h": d4}
+        if "1d" in fr:
+            x = fr["1d"]
+            frs["1d"] = x[x.index <= T - pd.Timedelta(minutes=1425)].tail(400)
         try:
-            res = A["analyze"](key, {"15m": d15, "1h": d1, "4h": d4}, bd)
+            res = A["analyze"](key, frs, bd)
         except Exception:
             continue
         if res["tier"] in ("A", "ARMED"):
@@ -263,14 +279,19 @@ def report(title, gross, bt_start, end):
              "بعد التكلفة: " + summ(n_all)]
     for k, v in net.items():
         lines.append(f"{ASSETS[k][2]}: {summ(v)}")
+    for tf in ("15m", "1h", "4h"):
+        sub = [t for t in net.get("GOLD", [])
+               if t.get("tf", "15m") == tf]
+        if sub:
+            lines.append(f"الذهب {tf}: {summ(sub)}")
     for sty in ("Breakout", "Retest"):
         sub = [t for t in n_all if t["style"] == sty]
         if sub:
             lines.append(f"{sty}: {summ(sub)}")
-    for sd, nm in ((1, "شراء"), (-1, "بيع")):
-        sub = [t for t in n_all if t["side"] == sd]
-        if sub:
-            lines.append(f"{nm}: {summ(sub)}")
+    longs = [t for t in n_all if t["side"] == 1]
+    shorts = [t for t in n_all if t["side"] == -1]
+    lines.append("شراء فقط: " + summ(longs))
+    lines.append("بيع فقط: " + summ(shorts))
     a = [t for t in n_all if pd.Timestamp(t["t_close"]) <= cut]
     b = [t for t in n_all if pd.Timestamp(t["t_close"]) > cut]
     lines.append("أول ثلثين: " + summ(a))
@@ -299,7 +320,7 @@ def main():
             print(key, "load error:", e)
 
     base = run(data, bt_start, lambda now: False)
-    text = report("🧪 باك تيست v6 (OKX، بدون فلتر الأخبار)",
+    text = report("🧪 باك تيست v7 (ورقي، بدون فلتر الأخبار)",
                   base, bt_start, end)
     if EVENTS:
         ev = [pd.Timestamp(e, tz="UTC") for e in EVENTS]
@@ -308,9 +329,8 @@ def main():
                                    for t in ev))
         text += "\n\n" + report("🧪 مع فلتر الأخبار", filt, bt_start, end)
     text += (
-        f"\n\nآخر {DAYS} يوم للكريبتو والذهب، وناسداك ~59 يوم. "
-        "التكلفة 0.20% تقديرية، وفوائد المارجن للبيع غير محسوبة. "
-        "النتيجة ما تضمن المستقبل.")
+        f"\n\nآخر {DAYS} يوم. التكلفة تقديرية (بدون فوائد الاقتراض "
+        "للبيع). النتيجة ما تضمن المستقبل.")
     send(text)
 
 
