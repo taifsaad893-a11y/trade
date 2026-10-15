@@ -1,5 +1,7 @@
 import os
 import json
+import math
+import tempfile
 import requests
 import pandas as pd
 import yfinance as yf
@@ -21,6 +23,7 @@ ASSETS = {
 TR = {1: "صاعد", -1: "هابط", 0: "عرضي"}
 OKX_BARS = {"15m": "15m", "1h": "1H", "4h": "4H", "1d": "1Dutc"}
 TD_BARS = {"15m": "15min", "1h": "1h", "4h": "4h", "1d": "1day"}
+USE_ICT = True  # False = تعطيل نقاط ICT بالكامل
 
 
 def fmt(x):
@@ -151,7 +154,11 @@ def rsi(s, n=14):
     d = s.diff()
     up = d.clip(lower=0).ewm(alpha=1 / n, adjust=False).mean()
     dn = (-d.clip(upper=0)).ewm(alpha=1 / n, adjust=False).mean()
-    return 100 - 100 / (1 + up / dn)
+    rs = up.div(dn.where(dn != 0))
+    out = 100 - 100 / (1 + rs)
+    out = out.mask((dn == 0) & (up > 0), 100.0)
+    out = out.mask((dn == 0) & (up == 0), 50.0)
+    return out
 
 
 def macd_h(s):
@@ -190,6 +197,8 @@ def swings(d, k=2):
 
 
 def ict(d15, d1, s, a):
+    if not USE_ICT:
+        return 0.0, []
     try:
         return ict_calc(d15, d1, s, a)
     except Exception as e:
@@ -425,11 +434,14 @@ def analyze_core(key, fr, btc_dir, live=None):
             stop = max(float(d15["h"].tail(12).max()), ep + a15) + 0.2 * a15
             risk = stop - ep
             lv = sup_p[0] if (sup_p and sup_p[0] < ep) else lo1
-        if risk <= 0 or risk > 3 * a1:
+        if (not math.isfinite(risk) or not math.isfinite(a1) or a1 <= 0
+                or risk <= 0 or risk > 3 * a1):
             return None
         if USE_MIN_STOP and risk < MIN_RISK.get(key, 0.004) * ep:
             return None
         room = (lv - ep) * s
+        if not math.isfinite(room):
+            return None
         rr = min(3.0, room / risk) if room > 0 else 3.0
         tps = [ep + s * risk * k for k in (1, 2, 3)]
         return {"entry": ep, "stop": stop, "tps": tps, "rr": round(rr, 1)}
@@ -446,8 +458,7 @@ def analyze_core(key, fr, btc_dir, live=None):
         sc += 1 if ok else 0
         if vr is not None:
             sc += 1 if vr >= 1.2 else 0
-        else:
-            sc += 0.5
+        # الفوليوم الناقص محايد، ما يضيف نقاط
         sc += 0.5 if (price > e200) == (s == 1) else 0
         if btc_dir is not None and key in ("ETH", "SOL"):
             sc += 1 if btc_dir == s else (-1.5 if btc_dir == -s else 0)
@@ -484,7 +495,7 @@ def analyze_core(key, fr, btc_dir, live=None):
               and price < e20)
         lvl = lo20
         ext = (lo20 - price) / a15
-    style = "Breakout" if brk else ("Retest" if rt else None)
+    style = "Breakout" if brk else ("Pullback" if rt else None)
 
     obs = (f"مرصود: 4h {TR[t4]} | 1h {TR[t1]} | RSI15 {r15:.0f} | "
            f"MACD15 {'+' if mh > 0 else '-'}")
@@ -524,7 +535,7 @@ def analyze_core(key, fr, btc_dir, live=None):
     if brk and sc >= A_MIN and ext > 0.5:
         pa = plan(s, lvl)
         if pa and pa["rr"] >= 2:
-            res.update(tier="ARMED", plan=pa, style="Retest",
+            res.update(tier="ARMED", plan=pa, style="BreakRetest",
                        zone=[lvl - 0.3 * a15, lvl + 0.3 * a15])
             return res
 
@@ -592,19 +603,45 @@ def analyze(key, fr, btc_dir):
     return res
 def load():
     try:
-        with open(STATE_FILE) as f:
+        with open(STATE_FILE, encoding="utf-8") as f:
             st = json.load(f)
-    except Exception:
+    except FileNotFoundError:
         st = {}
-    for k, v in (("active", {}), ("watch", {}), ("cool", {}),
-                 ("closed", []), ("n", 0)):
-        st.setdefault(k, v)
+    except (json.JSONDecodeError, UnicodeDecodeError) as e:
+        raise RuntimeError(
+            f"{STATE_FILE} is unreadable; preserving it instead of "
+            "resetting trade state") from e
+
+    if not isinstance(st, dict):
+        raise RuntimeError(f"{STATE_FILE} must contain a JSON object")
+
+    defaults = (("active", {}), ("watch", {}), ("cool", {}),
+                ("closed", []), ("n", 0))
+    for key, value in defaults:
+        st.setdefault(key, value)
+    for key in ("active", "watch", "cool"):
+        if not isinstance(st[key], dict):
+            raise RuntimeError(f"{STATE_FILE}: '{key}' must be an object")
+    if not isinstance(st["closed"], list):
+        raise RuntimeError(f"{STATE_FILE}: 'closed' must be a list")
+    if not isinstance(st["n"], int) or isinstance(st["n"], bool):
+        raise RuntimeError(f"{STATE_FILE}: 'n' must be an integer")
     return st
 
 
 def save(st):
-    with open(STATE_FILE, "w") as f:
-        json.dump(st, f, ensure_ascii=False, indent=1)
+    directory = os.path.dirname(os.path.abspath(STATE_FILE))
+    fd, tmp_path = tempfile.mkstemp(prefix=".state-", suffix=".tmp",
+                                    dir=directory)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump(st, f, ensure_ascii=False, indent=1)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp_path, STATE_FILE)
+    finally:
+        if os.path.exists(tmp_path):
+            os.unlink(tmp_path)
 
 
 def realized(sp, exit_r):
@@ -742,18 +779,33 @@ def manage(st, sp, d15, d1, price, now):
         for i in range(3):
             if sp["hits"][i]:
                 continue
-            if (hi >= sp["tps"][i]) if s == 1 else (lo <= sp["tps"][i]):
-                sp["hits"][i] = True
-                ev.append(f"🎯 {pid} {name}: TP{i + 1} HIT "
-                          f"({fmt(sp['tps'][i])})")
-                if i == 2:
-                    finish(st, sp, "CLOSED", 0, "TP3", now)
-                    ev.append(f"✅ {pid}: إغلاق كامل | R ورقي {sp['r']}")
-                    return ev
-                sp["stop"] = sp["entry"] if i == 0 else sp["tps"][0]
-                ev.append(f"🔒 {pid}: MOVE SL → {fmt(sp['stop'])}")
-            else:
+            target_hit = ((hi >= sp["tps"][i]) if s == 1
+                          else (lo <= sp["tps"][i]))
+            if not target_hit:
                 break
+
+            sp["hits"][i] = True
+            ev.append(f"🎯 {pid} {name}: TP{i + 1} HIT "
+                      f"({fmt(sp['tps'][i])})")
+            if i == 2:
+                finish(st, sp, "CLOSED", 0, "TP3", now)
+                ev.append(f"✅ {pid}: إغلاق كامل | R ورقي {sp['r']}")
+                return ev
+
+            sp["stop"] = sp["entry"] if i == 0 else sp["tps"][0]
+            ev.append(f"🔒 {pid}: MOVE SL → {fmt(sp['stop'])}")
+
+            # شموع OHLC ما تبين ترتيب الحركة داخل الشمعة، فنحسب هدف واحد
+            # لكل شمعة، وإذا الوقف المتحرك انلمس بنفس الشمعة نقفل الباقي.
+            moved_stop_hit = ((lo <= sp["stop"]) if s == 1
+                              else (hi >= sp["stop"]))
+            if moved_stop_hit:
+                er = (sp["stop"] - sp["entry"]) * s / risk0
+                finish(st, sp, "CLOSED", er, "STOP", now)
+                ev.append(f"🛑 {pid} {name}: الوقف المتحرك انلمس بنفس الشمعة "
+                          f"| R ورقي {sp['r']}")
+                return ev
+            break
     if sp["state"] == "ARMED":
         if now - pd.Timestamp(sp["t_decl"]) > pd.Timedelta(hours=arm_h):
             sp["state"] = "EXPIRED"
@@ -909,8 +961,11 @@ def main():
             pr = ("علّق بالعراقي بجملتين بالكثير على هالتنبيهات. "
                   "لا تغيّر الأرقام ولا تخترع أرقام ولا تضمن ربح:\n" + text)
             r = requests.post(
-                url, params={"key": GEMINI_KEY},
-                json={"contents": [{"parts": [{"text": pr}]}]}, timeout=60)
+                url,
+                headers={"x-goog-api-key": GEMINI_KEY},
+                json={"contents": [{"parts": [{"text": pr}]}]},
+                timeout=60,
+            )
             j = r.json()
             if "candidates" in j:
                 text += ("\n\n💬 " +
