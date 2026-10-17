@@ -2,6 +2,7 @@ import os
 import json
 import math
 import tempfile
+import numpy as np
 import requests
 import pandas as pd
 import yfinance as yf
@@ -183,6 +184,8 @@ def trend(d):
     if p < e20 < e50:
         return -1
     return 0
+
+
 def swings(d, k=2):
     H = d["h"].values
     L = d["l"].values
@@ -317,10 +320,15 @@ def ict_calc(d15, d1, s, a):
 
     pts = max(-1.0, min(2.5, pts))
     return round(pts, 1), notes
+
+
 A_MIN = 7.5
 USE_MIN_STOP = True
 SPOT_ONLY = False  # True = شراء فقط، False = شراء وبيع (Margin)
-GOLD_MTF = True    # True = الذهب يختار أفضل فريم دخول
+GOLD_MTF = True    # يُستخدم فقط إذا GOLD_VP = False
+GOLD_VP = True     # True = ستراتيجية الذهب: هيكل + بروفايل + دعم ومقاومة
+GOLD_VP_MIN_RISK = 0.003  # أقل مسافة وقف للذهب = 0.3% من السعر
+TF_ORDER = ["15m", "1h", "4h", "1d"]
 MIN_RISK = {"BTC": 0.004, "ETH": 0.004, "SOL": 0.005,
             "GOLD": 0.002, "NDX": 0.0015}
 
@@ -592,8 +600,263 @@ def gold_best(fr, btc_dir):
     return best
 
 
+def vol_profile(d, bins=60):
+    try:
+        lo = float(d["l"].min())
+        hi = float(d["h"].max())
+        if not hi > lo:
+            return None
+        step = (hi - lo) / bins
+        w = d["v"].astype(float).values
+        use_vol = float(w.sum()) > 0
+        if not use_vol:
+            w = np.ones(len(d))
+        L = d["l"].values
+        H = d["h"].values
+        i0 = np.clip(((L - lo) / step).astype(int), 0, bins - 1)
+        i1 = np.clip(((H - lo) / step).astype(int), 0, bins - 1)
+        vol = np.zeros(bins)
+        for a, b, x in zip(i0, i1, w):
+            vol[a:b + 1] += x / (b - a + 1)
+        poc_i = int(vol.argmax())
+        target = 0.7 * float(vol.sum())
+        lo_i = hi_i = poc_i
+        acc = float(vol[poc_i])
+        while acc < target and (lo_i > 0 or hi_i < bins - 1):
+            up = float(vol[hi_i + 1]) if hi_i < bins - 1 else -1.0
+            dn = float(vol[lo_i - 1]) if lo_i > 0 else -1.0
+            if up >= dn:
+                hi_i += 1
+                acc += up
+            else:
+                lo_i -= 1
+                acc += dn
+        return {"poc": float(lo + (poc_i + 0.5) * step),
+                "vah": float(lo + (hi_i + 1) * step),
+                "val": float(lo + lo_i * step),
+                "vol": use_vol}
+    except Exception:
+        return None
+
+
+def mstruct(d, k=3):
+    hs, ls = swings(d.tail(200), k)
+    if len(hs) < 2 or len(ls) < 2:
+        return 0
+    if hs[-1][1] > hs[-2][1] and ls[-1][1] > ls[-2][1]:
+        return 1
+    if hs[-1][1] < hs[-2][1] and ls[-1][1] < ls[-2][1]:
+        return -1
+    return 0
+
+
+def sr_multi(fr, tol):
+    wts = {"15m": 1, "1h": 2, "4h": 3, "1d": 4}
+    pts = []
+    for tf, w in wts.items():
+        d = fr.get(tf)
+        if d is None or len(d) < 20:
+            continue
+        x = d.tail(300 if tf == "15m" else 240)
+        H = x["h"].values
+        L = x["l"].values
+        for i in range(3, len(x) - 3):
+            if H[i] == max(H[i - 3:i + 4]):
+                pts.append((float(H[i]), w, tf))
+            if L[i] == min(L[i - 3:i + 4]):
+                pts.append((float(L[i]), w, tf))
+    pts.sort(key=lambda t: t[0])
+    cl = []
+    for p, w, tf in pts:
+        if cl and abs(p - cl[-1]["p"]) <= tol:
+            c = cl[-1]
+            c["p"] = (c["p"] * c["n"] + p) / (c["n"] + 1)
+            c["n"] += 1
+            c["w"] += w
+            c["tfs"].add(tf)
+        else:
+            cl.append({"p": p, "n": 1, "w": w, "tfs": {tf}})
+    return [c for c in cl if c["w"] >= 3]
+
+
+def sr_label(c):
+    tfs = "+".join(x for x in TF_ORDER if x in c["tfs"])
+    return f"{fmt(c['p'])} ({tfs})"
+
+
+def gold_vp(fr):
+    d15 = fr["15m"]
+    d1 = fr["1h"]
+    price = float(d15["c"].iloc[-1])
+    res = {"key": "GOLD", "side": 1, "score": 0.0, "price": price,
+           "obs": "", "tier": None, "style": "VProfile", "tf": "15m",
+           "ext": 0.0, "miss": []}
+    if len(d15) < 150 or len(d1) < 60 or len(fr["4h"]) < 60:
+        res["obs"] = "ستراتيجية الذهب: بيانات ناقصة"
+        return res
+    a15 = float(atr(d15).iloc[-1])
+    a1 = float(atr(d1).iloc[-1])
+    prof = vol_profile(d15.tail(300))
+    if (prof is None or not math.isfinite(a15) or not math.isfinite(a1)
+            or a15 <= 0 or a1 <= 0):
+        res["obs"] = "ستراتيجية الذهب: تعذر حساب البروفايل"
+        return res
+
+    s = mstruct(d1)
+    tolz = 0.35 * a1
+    srl = sr_multi(fr, tolz)
+    sups = sorted([c for c in srl if c["p"] < price], key=lambda c: -c["p"])
+    ress = sorted([c for c in srl if c["p"] > price], key=lambda c: c["p"])
+    side = s if s != 0 else (1 if price >= prof["poc"] else -1)
+    res["side"] = side
+    if side == 1:
+        zones = [("VAL", prof["val"]), ("POC", prof["poc"])]
+    else:
+        zones = [("VAH", prof["vah"]), ("POC", prof["poc"])]
+
+    w15 = d15.tail(24)
+    n = len(w15)
+    Lw = w15["l"].values
+    Hw = w15["h"].values
+    Cw = w15["c"].values
+    t = None
+    zname = None
+    zlvl = None
+    for i in range(n - 1, -1, -1):
+        for nm, lv in zones:
+            if Lw[i] <= lv + tolz and Hw[i] >= lv - tolz:
+                t, zname, zlvl = i, nm, lv
+                break
+        if t is not None:
+            break
+
+    trig = False
+    if t is not None and t <= n - 3:
+        if side == 1:
+            brk_lvl = float(Hw[t:n - 1].max())
+            trig = bool(Cw[-1] > brk_lvl)
+        else:
+            brk_lvl = float(Lw[t:n - 1].min())
+            trig = bool(Cw[-1] < brk_lvl)
+    ext_ok = True
+    if zlvl is not None:
+        ext = ((price - zlvl) if side == 1 else (zlvl - price)) / a1
+        res["ext"] = round(ext, 1)
+        ext_ok = ext <= 1.5
+
+    score = 0.0
+    score += 3 if s != 0 else 0
+    score += 2 if t is not None else 0
+    score += 3 if trig else 0
+    if zlvl is not None and any(abs(c["p"] - zlvl) <= tolz for c in srl):
+        score += 1
+    score += 1 if trend(fr["4h"]) == side else 0
+    res["score"] = float(score)
+
+    names = {1: "صاعد (قمم وقيعان أعلى)", -1: "هابط (قمم وقيعان أدنى)",
+             0: "عرضي/غير واضح"}
+    src = "حجم" if prof["vol"] else "زمن، بدون فوليوم"
+    obs = (f"هيكل 1h: {names[s]}\n"
+           f"بروفايل ({src}): POC {fmt(prof['poc'])} | "
+           f"VAH {fmt(prof['vah'])} | VAL {fmt(prof['val'])}")
+    if sups:
+        obs += "\nدعم: " + " | ".join(sr_label(c) for c in sups[:2])
+    if ress:
+        obs += "\nمقاومة: " + " | ".join(sr_label(c) for c in ress[:2])
+    if t is not None:
+        obs += (f"\nمنطقة {zname} ({fmt(zlvl)}) انلمست قبل "
+                f"{n - 1 - t} شمعة 15m")
+    obs += "\nفريم الدخول: 15m"
+
+    miss = []
+    plan = None
+    names_t = []
+    if s == 0:
+        miss.append("هيكل 1h غير واضح")
+    elif t is None:
+        miss.append("ما لمس منطقة القيمة بآخر 6 ساعات")
+    elif t > n - 3:
+        miss.append("ينتظر كسر هيكل 15m")
+    elif not trig:
+        miss.append("ما صار كسر هيكل 15m")
+    elif not ext_ok:
+        miss.append("السعر ابتعد عن المنطقة")
+
+    if s != 0 and trig and ext_ok:
+        lo_s = max(t - 2, 0)
+        if side == 1:
+            stop = float(Lw[lo_s:].min()) - 0.25 * a15
+            risk = price - stop
+        else:
+            stop = float(Hw[lo_s:].max()) + 0.25 * a15
+            risk = stop - price
+        if (not math.isfinite(risk) or risk <= 0 or risk > 3 * a1
+                or risk < GOLD_VP_MIN_RISK * price):
+            miss.append("الوقف ضيق أو واسع")
+        else:
+            lv = [(prof["poc"], "POC"), (prof["vah"], "VAH"),
+                  (prof["val"], "VAL")]
+            for c in srl:
+                kind = "مقاومة " if c["p"] > price else "دعم "
+                lv.append((c["p"], kind + "+".join(
+                    x for x in TF_ORDER if x in c["tfs"])))
+            blocked = any(
+                c["w"] >= 4 and
+                0.2 * risk <= (c["p"] - price) * side < 0.8 * risk
+                for c in srl)
+            if blocked:
+                miss.append("مستوى قوي قريب قدام الدخول")
+            else:
+                cand = sorted(
+                    [x for x in lv if (x[0] - price) * side >= 0.8 * risk],
+                    key=lambda x: (x[0] - price) * side)
+                tps = []
+                for p, nm in cand:
+                    if not tps or abs(p - tps[-1]) >= 0.5 * risk:
+                        tps.append(p)
+                        names_t.append(nm)
+                    if len(tps) == 3:
+                        break
+                while len(tps) < 3:
+                    base = tps[-1] if tps else price
+                    tps.append(base + side * risk)
+                    names_t.append("+1R")
+                rr = abs(tps[1] - price) / risk
+                if rr >= 2:
+                    plan = {"entry": price, "stop": stop, "tps": tps,
+                            "rr": round(min(3.0, rr), 1)}
+                else:
+                    miss.append("R:R أقل من 2")
+
+    if plan is not None:
+        obs += ("\nالأهداف: TP1 " + names_t[0] + " | TP2 " + names_t[1]
+                + " | TP3 " + names_t[2])
+        res.update(tier="A", plan=plan, obs=obs)
+        return res
+
+    if s != 0 and t is not None:
+        obs += "\nناقص للدخول: " + " | ".join(miss)
+    res["obs"] = obs
+    res["miss"] = miss
+    if s != 0 and t is not None and score >= 5:
+        if side == 1:
+            lv_prev = float(Hw[t:].max())
+            sw = float(Lw[max(t - 2, 0):].min())
+            cond = f"إغلاق شمعة 15m فوق {fmt(lv_prev)}"
+            inv = "كسر " + fmt(sw)
+        else:
+            lv_prev = float(Lw[t:].min())
+            sw = float(Hw[max(t - 2, 0):].max())
+            cond = f"إغلاق شمعة 15m تحت {fmt(lv_prev)}"
+            inv = "اختراق " + fmt(sw)
+        res.update(tier="B", cond=cond, inv=inv)
+    return res
+
+
 def analyze(key, fr, btc_dir):
-    if key == "GOLD" and GOLD_MTF:
+    if key == "GOLD" and GOLD_VP:
+        res = gold_vp(fr)
+    elif key == "GOLD" and GOLD_MTF:
         res = gold_best(fr, btc_dir)
     else:
         res = analyze_core(key, fr, btc_dir)
@@ -601,6 +864,8 @@ def analyze(key, fr, btc_dir):
     if SPOT_ONLY and res["side"] == -1:
         res["tier"] = None
     return res
+
+
 def load():
     try:
         with open(STATE_FILE, encoding="utf-8") as f:
@@ -645,7 +910,9 @@ def save(st):
 
 
 def realized(sp, exit_r):
-    done = sum(k + 1 for k in range(3) if sp["hits"][k]) / 3
+    risk0 = abs(sp["entry"] - sp["stop0"]) or 1e-9
+    done = sum(abs(sp["tps"][k] - sp["entry"]) / risk0
+               for k in range(3) if sp["hits"][k]) / 3
     left = (3 - sum(sp["hits"])) / 3
     return round(done + left * exit_r, 2)
 
@@ -848,6 +1115,8 @@ def stats(cl):
             if len(sub) >= 10:
                 out.append(line(sub, g))
     return "\n".join(out) + "\nعينة صغيرة، لا تعتبرها دليل تفوق."
+
+
 def msg_setup(res, sp, name):
     side = "LONG" if sp["side"] == 1 else "SHORT"
     head = ("🟢 A ENTRY (ورقي)" if sp["state"] == "ENTERED"
