@@ -5,6 +5,7 @@ import requests
 
 DAYS = 90
 STEP = 2
+COMPARE_ICT = False  # True = يشغّل مرتين (مع ICT وبدونه) ويرسل رسالتين
 HOSTS = ["https://data-api.binance.vision", "https://api.binance.com"]
 
 src = open("agent.py", encoding="utf-8").read()
@@ -257,7 +258,7 @@ def report(title, trades, bt_start, end):
     lines.append("آخر ثلث: " + summ(b))
     lines.append("شراء فقط: " + summ([t for t in all_t if t["side"] == 1]))
     lines.append("بيع فقط: " + summ([t for t in all_t if t["side"] == -1]))
-    for sty in ("Breakout", "Pullback", "BreakRetest"):
+    for sty in ("Breakout", "Pullback", "BreakRetest", "VProfile"):
         sub = [t for t in all_t if t["style"] == sty]
         if sub:
             lines.append(f"{sty}: {summ(sub)}")
@@ -291,14 +292,15 @@ def main():
         except Exception as e:
             print(key, "load error:", e)
 
+    note = (f"\n\nآخر {DAYS} يوم. بدون عمولة ولا سبريد ولا فوائد اقتراض، "
+            "فالواقع أسوأ. النتيجة ما تضمن المستقبل.")
     with_ict = run_mode(True, data, bt_start)
-    send(report("🧪 باك تيست v9 | مع ICT (بدون عمولة)",
-                with_ict, bt_start, end))
-    no_ict = run_mode(False, data, bt_start)
-    send(report("🧪 باك تيست v9 | بدون ICT (بدون عمولة)",
-                no_ict, bt_start, end)
-         + f"\n\nآخر {DAYS} يوم. بدون عمولة ولا سبريد ولا فوائد اقتراض، "
-         "فالواقع أسوأ. قارن بين الرسالتين فقط.")
+    send(report("🧪 باك تيست v10 | مع ICT (بدون عمولة)",
+                with_ict, bt_start, end) + note)
+    if COMPARE_ICT:
+        no_ict = run_mode(False, data, bt_start)
+        send(report("🧪 باك تيست v10 | بدون ICT (بدون عمولة)",
+                    no_ict, bt_start, end) + note)
 
 
 main()
