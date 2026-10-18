@@ -131,8 +131,10 @@ def load_asset(kind, sym, bt_start, end):
                 "4h": okx_range(sym, "4h", bt_start - 55 * day, end),
             }
         except Exception as e:
-            print("okx failed, trying twelvedata:", e)
-            return load_asset("td", "XAU/USD", bt_start, end)
+            print("okx failed, trying fallback:", e)
+            if sym.startswith("XAU"):
+                return load_asset("td", "XAU/USD", bt_start, end)
+            return load_asset("yf", "^NDX", bt_start, end)
         try:
             fr["1d"] = okx_range(sym, "1d", bt_start - 420 * day, end)
         except Exception as e:
@@ -154,7 +156,12 @@ def load_asset(kind, sym, bt_start, end):
     f4h = f1h.resample("4h").agg(
         {"o": "first", "h": "max", "l": "min",
          "c": "last", "v": "sum"}).dropna().iloc[:-1]
-    return {"15m": f15, "1h": f1h, "4h": f4h}
+    fr = {"15m": f15, "1h": f1h, "4h": f4h}
+    try:
+        fr["1d"] = A["yf_frame"](sym, "2y", "1d")
+    except Exception as e:
+        print("1d failed:", e)
+    return fr
 
 
 def slice_at(fr, T):
@@ -258,17 +265,18 @@ def report(title, trades, bt_start, end):
     lines.append("آخر ثلث: " + summ(b))
     lines.append("شراء فقط: " + summ([t for t in all_t if t["side"] == 1]))
     lines.append("بيع فقط: " + summ([t for t in all_t if t["side"] == -1]))
-    for sty in ("Breakout", "Pullback", "BreakRetest", "VProfile"):
+    for sty in ("Breakout", "Pullback", "BreakRetest", "VProfile",
+                "ZBounce", "ZBreak"):
         sub = [t for t in all_t if t["style"] == sty]
         if sub:
             lines.append(f"{sty}: {summ(sub)}")
+    zt = [t for t in all_t if str(t["style"]).startswith("Z")]
+    for rk in ("منخفضة", "متوسطة", "عالية"):
+        sub = [t for t in zt if t.get("risk") == rk]
+        if sub:
+            lines.append(f"مخاطرة {rk} (ذهب/ناسداك): {summ(sub)}")
     for k, v in trades.items():
         lines.append(f"{ASSETS[k][2]}: {summ(v)}")
-    for tf in ("15m", "1h", "4h"):
-        sub = [t for t in trades.get("GOLD", [])
-               if t.get("tf", "15m") == tf]
-        if sub:
-            lines.append(f"الذهب {tf}: {summ(sub)}")
     return "\n".join(lines)
 
 
@@ -293,13 +301,14 @@ def main():
             print(key, "load error:", e)
 
     note = (f"\n\nآخر {DAYS} يوم. بدون عمولة ولا سبريد ولا فوائد اقتراض، "
-            "فالواقع أسوأ. النتيجة ما تضمن المستقبل.")
+            "فالواقع أسوأ. تنبيهات التنبيه المبكر ما تنحسب هنا. "
+            "النتيجة ما تضمن المستقبل.")
     with_ict = run_mode(True, data, bt_start)
-    send(report("🧪 باك تيست v10 | مع ICT (بدون عمولة)",
+    send(report("🧪 باك تيست v11 | مع ICT (بدون عمولة)",
                 with_ict, bt_start, end) + note)
     if COMPARE_ICT:
         no_ict = run_mode(False, data, bt_start)
-        send(report("🧪 باك تيست v10 | بدون ICT (بدون عمولة)",
+        send(report("🧪 باك تيست v11 | بدون ICT (بدون عمولة)",
                     no_ict, bt_start, end) + note)
 
 
