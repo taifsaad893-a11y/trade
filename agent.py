@@ -14,12 +14,14 @@ TG_CHAT = os.environ["TG_CHAT"]
 EVENT = os.environ.get("EVENT", "")
 STATE_FILE = "state.json"
 
+NDX_OKX = "US100-USDT-SWAP"  # عقد ناسداك على OKX (غيّره إذا اسمه مختلف)
+
 ASSETS = {
     "BTC": ("bin", "BTCUSDT", "بيتكوين"),
     "ETH": ("bin", "ETHUSDT", "إيثريوم"),
     "SOL": ("bin", "SOLUSDT", "سولانا"),
     "GOLD": ("okx", "XAU-USDT", "الذهب"),
-    "NDX": ("yf", "^NDX", "ناسداك"),
+    "NDX": ("okx", NDX_OKX, "ناسداك"),
 }
 TR = {1: "صاعد", -1: "هابط", 0: "عرضي"}
 OKX_BARS = {"15m": "15m", "1h": "1H", "4h": "4H", "1d": "1Dutc"}
@@ -32,7 +34,7 @@ def fmt(x):
 
 
 def market_closed(key, now):
-    if key != "GOLD":
+    if key not in ("GOLD", "NDX"):
         return False
     wd = now.weekday()
     hr = now.hour
@@ -133,8 +135,10 @@ def frames(kind, sym):
         try:
             fr = {tf: okx_klines(sym, tf) for tf in ("15m", "1h", "4h")}
         except Exception as e:
-            print("okx failed, trying twelvedata:", e)
-            return frames("td", "XAU/USD")
+            print("okx failed, trying fallback:", e)
+            if sym.startswith("XAU"):
+                return frames("td", "XAU/USD")
+            return frames("yf", "^NDX")
         return with_daily(fr, lambda: okx_klines(sym, "1d"))
     if kind == "td":
         fr = {tf: td_frame(sym, tf) for tf in ("15m", "1h", "4h")}
@@ -144,7 +148,8 @@ def frames(kind, sym):
     f4h = f1h.resample("4h").agg(
         {"o": "first", "h": "max", "l": "min",
          "c": "last", "v": "sum"}).dropna().iloc[:-1]
-    return {"15m": f15, "1h": f1h, "4h": f4h}
+    return with_daily({"15m": f15, "1h": f1h, "4h": f4h},
+                      lambda: yf_frame(sym, "2y", "1d"))
 
 
 def ema(s, n):
@@ -853,8 +858,254 @@ def gold_vp(fr):
     return res
 
 
+ZONE_MODE = True   # True = الذهب وناسداك يشتغلون بتحليل المناطق
+ZONE_ASSETS = ("GOLD", "NDX")
+ZONE_MIN_RISK = {"GOLD": 0.0025, "NDX": 0.003}  # أقل مسافة وقف
+ZONE_MIN_Q = 4.0        # أقل جودة لصفقة مؤكدة
+ZONE_MIN_EARLY = 3.0    # أقل جودة لتنبيه مبكر
+RISK_UP = {"منخفضة": "متوسطة", "متوسطة": "عالية", "عالية": "عالية"}
+
+
+def cisd(d, s):
+    # CISD: إغلاق يكسر افتتاح أول شمعة بآخر سلسلة شموع معاكسة (2 فأكثر)
+    try:
+        x = d.tail(24)
+        o = x["o"].values
+        c = x["c"].values
+        n = len(x)
+
+        def opp(i):
+            return c[i] < o[i] if s == 1 else c[i] > o[i]
+
+        e = None
+        for i in range(n - 2, 0, -1):
+            if opp(i):
+                e = i
+                break
+        if e is None or e < n - 8:
+            return False
+        b = e
+        while b - 1 >= 0 and opp(b - 1):
+            b -= 1
+        if e - b + 1 < 2:
+            return False
+        lvl = o[b]
+        return bool(c[-1] > lvl) if s == 1 else bool(c[-1] < lvl)
+    except Exception:
+        return False
+
+
+def zone_strat(key, fr):
+    d15, d1, d4 = fr["15m"], fr["1h"], fr["4h"]
+    price = float(d15["c"].iloc[-1])
+    res = {"key": key, "side": 1, "score": 0.0, "price": price,
+           "obs": "", "tier": None, "style": None, "tf": "15m",
+           "ext": 0.0, "miss": [], "risk": None}
+    if len(d15) < 120 or len(d1) < 60 or len(d4) < 60:
+        res["obs"] = "تحليل المناطق: بيانات ناقصة"
+        return res
+    a15 = float(atr(d15).iloc[-1])
+    a1 = float(atr(d1).iloc[-1])
+    if (not math.isfinite(a15) or not math.isfinite(a1)
+            or a15 <= 0 or a1 <= 0):
+        res["obs"] = "تحليل المناطق: تعذر حساب ATR"
+        return res
+    res["a1"] = a1
+    zw = 0.25 * a1
+    srl = sr_multi(fr, 0.35 * a1)
+    t1, t4 = trend(d1), trend(d4)
+    r15 = float(rsi(d15["c"]).iloc[-1])
+    r1 = float(rsi(d1["c"]).iloc[-1])
+    e20 = float(ema(d1["c"], 20).iloc[-1])
+    e50 = float(ema(d1["c"], 50).iloc[-1])
+    vw = vwap_day(d15)
+    C = d15["c"].values[-12:]
+    L = d15["l"].values[-12:]
+    H = d15["h"].values[-12:]
+    O = d15["o"].values[-12:]
+    names = {1: "صاعد", -1: "هابط", 0: "عرضي"}
+
+    cands = []
+    for z in srl:
+        bot = z["p"] - zw
+        top = z["p"] + zw
+        if (C[-1] < bot - 0.1 * a15 and C[-2] < bot - 0.1 * a15
+                and (C[-8:-2] >= bot).any() and bot - price <= 1.5 * a1):
+            cands.append(("BREAK", -1, z, 3))
+            continue
+        if (C[-1] > top + 0.1 * a15 and C[-2] > top + 0.1 * a15
+                and (C[-8:-2] <= top).any() and price - top <= 1.5 * a1):
+            cands.append(("BREAK", 1, z, 3))
+            continue
+        ov = [i for i in range(4, 12) if L[i] <= top and H[i] >= bot]
+        if ov:
+            t = ov[-1]
+            rng = max(H[t] - L[t], 1e-9)
+            lw = (min(O[t], C[t]) - L[t]) / rng
+            uw = (H[t] - max(O[t], C[t])) / rng
+            if (price > top and C[4:].min() >= bot - 0.1 * a15
+                    and C[t] >= bot and (lw >= 0.4 or cisd(d15, 1))):
+                cands.append(("BOUNCE", 1, z, 2))
+                continue
+            if (price < bot and C[4:].max() <= top + 0.1 * a15
+                    and C[t] <= top and (uw >= 0.4 or cisd(d15, -1))):
+                cands.append(("BOUNCE", -1, z, 2))
+                continue
+        if bot - 0.15 * a1 <= price <= top + 0.15 * a1:
+            sd = 1 if float(C[:-1].mean()) > z["p"] else -1
+            cands.append(("EARLY", sd, z, 1))
+
+    def quality(kind, s, z):
+        q = 0.0
+        q += 2 if t1 == s else (-1 if t1 == -s else 0)
+        q += 1 if t4 == s else (-0.5 if t4 == -s else 0)
+        q += 1 if (e20 > e50) == (s == 1) else 0
+        if kind == "BREAK":
+            ok = (50 <= r15 <= 75) if s == 1 else (25 <= r15 <= 50)
+        else:
+            ok = (30 <= r15 <= 60) if s == 1 else (40 <= r15 <= 70)
+        q += 1 if ok else 0
+        if vw is not None:
+            q += 1 if (price > vw) == (s == 1) else 0
+        q += max(-1.0, min(2.0, ict(d15, d1, s, a15)[0]))
+        q += 1.5 if cisd(d15, s) else 0
+        q += 1 if z["w"] >= 6 else 0
+        q += 0.5 if ("4h" in z["tfs"] or "1d" in z["tfs"]) else 0
+        return round(max(0.0, min(10.0, q)), 1)
+
+    def build(kind, s, z):
+        bot = z["p"] - zw
+        top = z["p"] + zw
+        if kind == "BREAK":
+            stop = (bot - 0.2 * a15) if s == 1 else (top + 0.2 * a15)
+        elif s == 1:
+            stop = min(bot, float(L[-8:].min())) - 0.25 * a15
+        else:
+            stop = max(top, float(H[-8:].max())) + 0.25 * a15
+        risk = (price - stop) * s
+        if (not math.isfinite(risk) or risk <= 0 or risk > 3 * a1
+                or risk < ZONE_MIN_RISK.get(key, 0.003) * price):
+            return None, None, "الوقف ضيق أو واسع"
+        lv = [(e20, "EMA20 1h"), (e50, "EMA50 1h")]
+        if vw is not None:
+            lv.append((vw, "VWAP"))
+        for c in srl:
+            if abs(c["p"] - z["p"]) < 1e-9:
+                continue
+            kd = "مقاومة " if c["p"] > price else "دعم "
+            lv.append((c["p"], kd + "+".join(
+                x for x in TF_ORDER if x in c["tfs"])))
+        blocked = any(
+            c["w"] >= 4 and abs(c["p"] - z["p"]) > 1e-9
+            and 0.2 * risk <= (c["p"] - price) * s < 0.8 * risk
+            for c in srl)
+        if blocked:
+            return None, None, "مستوى قوي قريب قدام الدخول"
+        cand = sorted([x for x in lv
+                       if 0.8 * risk <= (x[0] - price) * s <= 4 * risk],
+                      key=lambda x: (x[0] - price) * s)
+        tps = []
+        nm = []
+        for p_, n_ in cand:
+            if not tps or abs(p_ - tps[-1]) >= 0.5 * risk:
+                tps.append(p_)
+                nm.append(n_)
+            if len(tps) == 3:
+                break
+        while len(tps) < 3:
+            base = tps[-1] if tps else price
+            tps.append(base + s * risk)
+            nm.append("+1R")
+        rr = abs(tps[1] - price) / risk
+        if rr < 2:
+            return None, None, "R:R أقل من 2"
+        return ({"entry": price, "stop": stop, "tps": tps,
+                 "rr": round(min(3.0, rr), 1)}, nm, None)
+
+    scored = [(rk, quality(kd, sd, z), kd, sd, z) for kd, sd, z, rk in cands]
+    scored.sort(key=lambda t: (t[0], t[1]), reverse=True)
+    miss = []
+    for rk, q, kind, s, z in scored:
+        if kind == "EARLY" and q < ZONE_MIN_EARLY:
+            miss.append("تنبيه مبكر: الجودة منخفضة")
+            continue
+        if kind != "EARLY" and q < ZONE_MIN_Q:
+            miss.append("جودة الإشارة منخفضة")
+            continue
+        plan, tnames, why = build(kind, s, z)
+        if plan is None:
+            miss.append(why)
+            continue
+        bot = z["p"] - zw
+        top = z["p"] + zw
+        if kind == "EARLY":
+            risk_g = "عالية"
+        else:
+            risk_g = "منخفضة" if q >= 7 else ("متوسطة" if q >= 5 else "عالية")
+        kind_txt = {"BREAK": "كسر بثبات", "BOUNCE": "ارتداد مؤكد",
+                    "EARLY": "تنبيه مبكر (بدون تأكيد)"}[kind]
+        if kind == "BREAK":
+            ztxt = ("مقاومة مكسورة " if s == 1 else "دعم مكسور ")
+        else:
+            ztxt = ("دعم " if s == 1 else "مقاومة ")
+        ztxt += zlabel(z)
+        vtxt = ("غير متوفر" if vw is None
+                else ("السعر فوق VWAP" if price > vw else "السعر تحت VWAP"))
+        obs = (f"المنطقة: {ztxt} | {fmt(bot)} - {fmt(top)}\n"
+               f"نوع الإشارة: {kind_txt}\n"
+               f"RSI15 {r15:.0f} | RSI1h {r1:.0f} | EMA20/50 1h "
+               f"{'صاعد' if e20 > e50 else 'هابط'} | VWAP: {vtxt}\n"
+               f"ترند 1h {names[t1]} | 4h {names[t4]} | "
+               f"CISD {'نعم' if cisd(d15, s) else 'لا'}")
+        nt = ict(d15, d1, s, a15)[1]
+        if nt:
+            obs += "\nICT: " + " | ".join(nt)
+        obs += ("\nالأهداف: TP1 " + tnames[0] + " | TP2 " + tnames[1]
+                + " | TP3 " + tnames[2])
+        res.update(
+            side=s, score=q, plan=plan, risk=risk_g, obs=obs,
+            style={"BREAK": "ZBreak", "BOUNCE": "ZBounce",
+                   "EARLY": "ZEarly"}[kind],
+            tier="EARLY" if kind == "EARLY" else "A",
+            zone_p=float(z["p"]), zone_txt=ztxt,
+            ext=round(abs(price - z["p"]) / a1, 1))
+        if kind == "EARLY":
+            if s == 1:
+                res["cond"] = (f"إغلاق شمعة 15m فوق {fmt(top)} "
+                               "مع شمعة رفض أو CISD")
+                res["inv"] = "كسر " + fmt(plan["stop"])
+            else:
+                res["cond"] = (f"إغلاق شمعة 15m تحت {fmt(bot)} "
+                               "مع شمعة رفض أو CISD")
+                res["inv"] = "اختراق " + fmt(plan["stop"])
+        return res
+
+    side = t1 if t1 != 0 else (1 if price >= e20 else -1)
+    res["side"] = side
+    ups = sorted([c for c in srl if c["p"] > price], key=lambda c: c["p"])
+    dns = sorted([c for c in srl if c["p"] < price], key=lambda c: -c["p"])
+    obs = (f"تحليل المناطق: ترند 1h {names[t1]} | 4h {names[t4]} | "
+           f"RSI15 {r15:.0f}")
+    if dns:
+        obs += "\nدعم: " + " | ".join(sr_label(c) for c in dns[:2])
+    if ups:
+        obs += "\nمقاومة: " + " | ".join(sr_label(c) for c in ups[:2])
+    if vw is not None:
+        obs += f"\nVWAP {fmt(vw)}"
+    if miss:
+        obs += "\nناقص: " + " | ".join(dict.fromkeys(miss))
+    res["obs"] = obs
+    return res
+
+
+def zlabel(z):
+    return sr_label(z)
+
+
 def analyze(key, fr, btc_dir):
-    if key == "GOLD" and GOLD_VP:
+    if key in ZONE_ASSETS and ZONE_MODE:
+        res = zone_strat(key, fr)
+    elif key == "GOLD" and GOLD_VP:
         res = gold_vp(fr)
     elif key == "GOLD" and GOLD_MTF:
         res = gold_best(fr, btc_dir)
@@ -926,7 +1177,7 @@ def finish(st, sp, state, exit_r, label, now):
         "style": sp["style"], "entry": sp["entry"],
         "stop0": sp["stop0"], "tps": sp["tps"],
         "hits": list(sp["hits"]), "r": sp["r"], "exit": label,
-        "tf": sp.get("tf", "15m"),
+        "tf": sp.get("tf", "15m"), "risk": sp.get("risk"),
         "t_decl": sp["t_decl"], "t_close": now.isoformat()})
     st["cool"][sp["key"]] = now.isoformat()
 
@@ -1002,7 +1253,7 @@ def open_setup(st, res, t_last):
     return {
         "id": f"{res['key']}-{st['n']:03d}", "key": res["key"],
         "side": res["side"], "style": res["style"],
-        "tf": res.get("tf", "15m"),
+        "tf": res.get("tf", "15m"), "risk": res.get("risk"),
         "entry": pl["entry"], "stop": pl["stop"], "stop0": pl["stop"],
         "tps": pl["tps"], "hits": [False, False, False],
         "rr": pl["rr"], "score": res["score"],
@@ -1081,7 +1332,8 @@ def manage(st, sp, d15, d1, price, now):
     if sp["state"] == "ENTERED":
         age = now - pd.Timestamp(sp["t0"])
         lim = pd.Timedelta(hours=hold_h * (2 if sp["hits"][0] else 1))
-        flip = (tf == "15m" and trend(d1) == -s and not sp["hits"][0])
+        flip = (tf == "15m" and not str(sp["style"]).startswith("Z")
+                and trend(d1) == -s and not sp["hits"][0])
         if age > lim or flip:
             er = (price - sp["entry"]) * s / risk0
             finish(st, sp, "CLOSED", er, "EARLY EXIT", now)
@@ -1134,7 +1386,8 @@ def msg_setup(res, sp, name):
         f"TP1 {fmt(sp['tps'][0])} | TP2 {fmt(sp['tps'][1])} | "
         f"TP3 {fmt(sp['tps'][2])}\n"
         f"R:R تقريباً {sp['rr']} | سكور {sp['score']}/10\n"
-        f"{res['obs']}\n"
+        + (f"درجة المخاطرة: {res['risk']}\n" if res.get("risk") else "")
+        + f"{res['obs']}\n"
         f"الإلغاء: {'تحت' if sp['side'] == 1 else 'فوق'} {fmt(sp['stop'])}\n"
         f"(تتبع ورقي افتراضي، مو دخول فعلي)")
 
@@ -1145,6 +1398,31 @@ def msg_watch(res, name):
             f"السعر: {fmt(res['price'])} | سكور {res['score']}/10\n"
             f"التأكيد المطلوب: {res['cond']}\n"
             f"الإلغاء: {res['inv']}\n{res['obs']}")
+
+
+def msg_early(res, name):
+    side = "LONG" if res["side"] == 1 else "SHORT"
+    pl = res["plan"]
+    return (
+        f"🟣 تنبيه مبكر (بدون تأكيد) | {name} {side}\n"
+        f"السعر: {fmt(res['price'])} | وصل {res.get('zone_txt', '')}\n"
+        f"درجة المخاطرة: {res['risk']} (جودة {res['score']}/10)\n"
+        f"دخول مقترح: {fmt(pl['entry'])} | وقف: {fmt(pl['stop'])}\n"
+        f"TP1 {fmt(pl['tps'][0])} | TP2 {fmt(pl['tps'][1])} | "
+        f"TP3 {fmt(pl['tps'][2])}\n"
+        f"للتأكيد: {res['cond']}\n"
+        f"{res['obs']}\n"
+        "القرار لك. ما يتتبع كصفقة ورقية إلا بعد التأكيد.")
+
+
+def news_risk(res, nw):
+    try:
+        if res.get("risk") and nw.get("blackout"):
+            res["risk"] = RISK_UP.get(res["risk"], res["risk"])
+            res["obs"] += "\nدرجة المخاطرة ارتفعت بسبب خبر قوي قريب"
+    except Exception as e:
+        print("news risk error:", e)
+    return res
 
 
 def main():
@@ -1174,6 +1452,16 @@ def main():
         name = ASSETS[key][2]
         d15, d1 = fr["15m"], fr["1h"]
         price = float(d15["c"].iloc[-1])
+        wk = f"{key}:E"
+        w = st["watch"].get(wk)
+        if w:
+            if ((price <= w["stop"]) if w["side"] == 1
+                    else (price >= w["stop"])):
+                events.append(f"⚠️ {name}: انلغى التنبيه المبكر، السعر "
+                              f"تجاوز {fmt(w['stop'])}")
+                st["watch"].pop(wk, None)
+            elif now - pd.Timestamp(w["ts"]) > pd.Timedelta(hours=12):
+                st["watch"].pop(wk, None)
         sp = st["active"].get(key)
         if sp:
             events += manage(st, sp, d15, d1, price, now)
@@ -1197,15 +1485,34 @@ def main():
             print(key, "analyze error:", e)
             continue
         res = news.apply(res, nw)
+        res = news_risk(res, nw)
         sd = "LONG" if res["side"] == 1 else "SHORT"
         summary.append(f"{name}: {sd} سكور {res['score']}/10 "
                        f"| فريم {res.get('tf', '15m')} "
                        f"| سعر {fmt(res['price'])}")
         if res["tier"] in ("A", "ARMED"):
+            pe = st["watch"].pop(f"{key}:E", None)
+            if (pe and pe.get("side") == res["side"] and
+                    now - pd.Timestamp(pe["ts"]) < pd.Timedelta(hours=12)):
+                res["obs"] += "\n✅ تأكيد للتنبيه المبكر السابق"
             sp = open_setup(st, res, d15.index[-1])
             st["active"][key] = sp
             st["watch"].pop(key, None)
             events.append(msg_setup(res, sp, name))
+        elif res["tier"] == "EARLY":
+            wk = f"{key}:E"
+            pw = st["watch"].get(wk)
+            zp = res.get("zone_p", 0.0)
+            fresh = (pw and pw.get("side") == res["side"]
+                     and abs(pw.get("zone", 0.0) - zp)
+                     <= 0.5 * res.get("a1", 0.0)
+                     and now - pd.Timestamp(pw["ts"])
+                     < pd.Timedelta(hours=6))
+            if not fresh:
+                st["watch"][wk] = {"side": res["side"], "zone": zp,
+                                   "stop": res["plan"]["stop"],
+                                   "ts": now.isoformat()}
+                events.append(msg_early(res, name))
         elif res["tier"] == "B":
             w = st["watch"].get(key)
             fresh = (w and w["side"] == res["side"] and
