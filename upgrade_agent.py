@@ -8,9 +8,9 @@ def patch_source(source):
     changes = []
 
     functions = {
-        n.name: n
-        for n in tree.body
-        if isinstance(n, ast.FunctionDef)
+        node.name: node
+        for node in tree.body
+        if isinstance(node, ast.FunctionDef)
     }
 
     required = {
@@ -22,12 +22,18 @@ def patch_source(source):
     if not required <= functions.keys():
         raise RuntimeError(
             "agent.py differs from reviewed version: missing "
-            + ", ".join(sorted(required - functions.keys()))
+            + ", ".join(sorted(
+                required - functions.keys()
+            ))
         )
 
     def edit(name, replacements):
         node = functions[name]
-        old = "".join(lines[node.lineno - 1:node.end_lineno])
+
+        old = "".join(
+            lines[node.lineno - 1:node.end_lineno]
+        )
+
         new = old
 
         for before, after in replacements:
@@ -36,16 +42,18 @@ def patch_source(source):
 
             if new.count(before) != 1:
                 raise RuntimeError(
-                    f"{name}: expected exactly one reviewed block; "
-                    "no file changed"
+                    f"{name}: expected exactly one reviewed "
+                    "block; no file changed"
                 )
 
             new = new.replace(before, after, 1)
 
         if new != old:
-            changes.append(
-                (node.lineno - 1, node.end_lineno, new)
-            )
+            changes.append((
+                node.lineno - 1,
+                node.end_lineno,
+                new,
+            ))
 
     edit("analyze_core", [
         (
@@ -59,19 +67,34 @@ def patch_source(source):
         ),
     ])
 
-    edit("analyze", [
-        (
-            'if key in ZONE_ASSETS and ZONE_MODE:\n'
-            '        res = zone_strat(key, fr)\n'
-            '    elif key == "GOLD" and GOLD_VP:\n'
-            '        res = gold_vp(fr)',
+    node = functions["analyze"]
 
-            'if key == "GOLD" and GOLD_VP:\n'
-            '        res = gold_vp(fr)\n'
-            '    elif key in ZONE_ASSETS and ZONE_MODE:\n'
-            '        res = zone_strat(key, fr)',
-        ),
-    ])
+    analyze_code = '''def analyze(key, fr, btc_dir):
+    if key == "GOLD" and GOLD_VP:
+        from gold_volume import analyze_gold
+        res = analyze_gold(fr, globals())
+    elif key in ZONE_ASSETS and ZONE_MODE:
+        res = zone_strat(key, fr)
+    elif key == "GOLD" and GOLD_MTF:
+        res = gold_best(fr, btc_dir)
+    else:
+        res = analyze_core(key, fr, btc_dir)
+        res["tf"] = "15m"
+    if SPOT_ONLY and res["side"] == -1:
+        res["tier"] = None
+    return res
+'''
+
+    current = "".join(
+        lines[node.lineno - 1:node.end_lineno]
+    )
+
+    if current != analyze_code:
+        changes.append((
+            node.lineno - 1,
+            node.end_lineno,
+            analyze_code,
+        ))
 
     edit("gold_vp", [
         (
@@ -117,7 +140,9 @@ def patch_source(source):
                 'if __name__ == "__main__":\n    main()\n',
             ))
 
-    for start, end, value in sorted(changes, reverse=True):
+    for start, end, value in sorted(
+        changes, reverse=True
+    ):
         lines[start:end] = [value]
 
     output = "".join(lines).replace(
