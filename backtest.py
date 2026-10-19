@@ -1,326 +1,977 @@
+import csv
+import json
+import logging
 import os
+from pathlib import Path
+import sys
 import time
+import types
+
 import pandas as pd
-import requests
 
-DAYS = 90
-STEP = 2
-COMPARE_ICT = False  # True = يشغّل مرتين (مع ICT وبدونه) ويرسل رسالتين
-HOSTS = ["https://data-api.binance.vision", "https://api.binance.com"]
+import scanner as engine
+import scanner_data as md
+import gold_volume as gv
 
-src = open("agent.py", encoding="utf-8").read()
-src = src.rsplit("\nmain()", 1)[0]
-A = {}
-exec(compile(src, "agent.py", "exec"), A)
-ASSETS = A["ASSETS"]
+from upgrade_agent import patch_source
 
 
-def klines_range(sym, tf, start, end):
+LOG = logging.getLogger(__name__)
+OUT = Path("backtest_results")
+
+DAYS = int(os.environ.get("BT_DAYS", "90"))
+STEP = int(os.environ.get("BT_STEP", "1"))
+
+SCAN_DELAY = pd.Timedelta(seconds=float(
+    os.environ.get("BT_SCAN_DELAY_SECONDS", "120")
+))
+
+HOSTS = (
+    "https://data-api.binance.vision",
+    "https://api.binance.com",
+)
+
+
+def load_strategy():
+    for key in ("TG_TOKEN", "TG_CHAT", "GEMINI_KEY"):
+        os.environ.setdefault(key, "")
+
+    module = types.ModuleType("backtest_strategy")
+    module.__file__ = "agent.py"
+    sys.modules[module.__name__] = module
+
+    source = patch_source(
+        Path("agent.py").read_text(encoding="utf-8")
+    )
+
+    exec(
+        compile(source, "agent.py", "exec"),
+        module.__dict__,
+    )
+
+    return module
+
+
+def binance_range(symbol, tf, start, end):
     rows = []
-    cur = int(start.timestamp() * 1000)
-    end_ms = int(end.timestamp() * 1000)
-    while cur < end_ms:
-        got = None
-        for h in HOSTS:
+    cursor = int(start.timestamp() * 1000)
+    end_ms = int(end.timestamp() * 1000) - 1
+
+    for _ in range(1000):
+        if cursor > end_ms:
+            break
+
+        batch = None
+
+        for host in HOSTS:
             try:
-                r = requests.get(
-                    h + "/api/v3/klines",
-                    params={"symbol": sym, "interval": tf,
-                            "startTime": cur, "endTime": end_ms,
-                            "limit": 1000}, timeout=30)
-                if r.ok:
-                    got = r.json()
-                    break
-            except Exception:
-                pass
-        if got is None:
-            raise RuntimeError("binance failed " + sym)
-        if not got:
+                batch = md.get_json(
+                    host + "/api/v3/klines",
+                    {
+                        "symbol": symbol,
+                        "interval": tf,
+                        "startTime": cursor,
+                        "endTime": end_ms,
+                        "limit": 1000,
+                    },
+                )
+
+                if not isinstance(batch, list):
+                    raise ValueError(
+                        "non-list Binance payload"
+                    )
+
+                break
+
+            except Exception as exc:
+                LOG.warning(
+                    "Historical Binance %s %s %s",
+                    symbol, tf, md.safe_error(exc),
+                )
+
+        if batch is None:
+            raise ValueError(
+                "both Binance historical endpoints failed"
+            )
+
+        if not batch:
             break
-        rows += got
-        cur = got[-1][0] + 1
-        if len(got) < 1000:
+
+        next_cursor = int(batch[-1][0]) + 1
+
+        if next_cursor <= cursor:
+            raise ValueError(
+                "historical pagination did not advance"
+            )
+
+        rows.extend(batch)
+        cursor = next_cursor
+
+        if len(batch) < 1000:
             break
-    d = pd.DataFrame(rows).iloc[:, [0, 1, 2, 3, 4, 5, 9]]
-    d.columns = ["t", "o", "h", "l", "c", "v", "tb"]
-    d = d.astype(float)
-    d.index = pd.to_datetime(d["t"], unit="ms", utc=True)
-    return d.drop(columns="t").iloc[:-1]
+
+    if not rows:
+        raise ValueError("empty Binance history")
+
+    d = pd.DataFrame(rows).iloc[
+        :, [0, 1, 2, 3, 4, 5, 6, 9]
+    ]
+
+    d.columns = [
+        "t", "o", "h", "l",
+        "c", "v", "end", "tb",
+    ]
+
+    d.index = pd.to_datetime(
+        d.pop("t").astype("int64"),
+        unit="ms",
+        utc=True,
+    )
+
+    d["end"] = pd.to_datetime(
+        d["end"].astype("int64") + 1,
+        unit="ms",
+        utc=True,
+    )
+
+    d["tb"] = pd.to_numeric(d["tb"])
+    d = gv.distinct(d)
+
+    return md.clean(
+        d,
+        tf,
+        end + pd.Timedelta(seconds=2),
+        d["end"],
+    )
 
 
-def okx_range(inst, tf, start, end):
-    inst = A["okx_resolve"](inst)
-    bar = {"15m": "15m", "1h": "1H", "4h": "4H", "1d": "1Dutc"}[tf]
+def twelve_range(symbol, tf, start, end):
+    key = os.environ.get("TWELVE_KEY")
+
+    if not key:
+        raise ValueError("TWELVE_KEY missing")
+
+    parts = []
+    cursor = end
+
+    for _ in range(20):
+        payload = md.get_json(
+            "https://api.twelvedata.com/time_series",
+            {
+                "symbol": symbol,
+                "interval": {
+                    "15m": "15min",
+                    "1h": "1h",
+                    "4h": "4h",
+                    "1d": "1day",
+                }[tf],
+                "outputsize": 5000,
+                "timezone": "UTC",
+                "apikey": key,
+                "end_date": cursor.strftime(
+                    "%Y-%m-%d %H:%M:%S"
+                ),
+            },
+        )
+
+        if not payload.get("values"):
+            raise ValueError(
+                "Twelve historical response missing values: "
+                + str(payload.get("code", "unknown"))
+            )
+
+        d = md.twelve_payload(
+            payload,
+            tf,
+            end + pd.Timedelta(seconds=2),
+        )
+
+        if d.empty:
+            break
+
+        oldest = d.index[0]
+
+        if oldest >= cursor:
+            raise ValueError(
+                "Twelve pagination did not advance"
+            )
+
+        parts.append(d)
+
+        if (
+            oldest <= start
+            or len(payload["values"]) < 5000
+        ):
+            break
+
+        cursor = oldest - pd.Timedelta(seconds=1)
+        time.sleep(8)
+
+    if not parts:
+        raise ValueError("empty Twelve history")
+
+    d = gv.distinct(pd.concat(parts))
+
+    return d[
+        (d.index >= start)
+        & (d["end"] <= end)
+    ]
+
+
+def okx_range(symbol, tf, start, end):
+    md.okx(symbol, tf, end)
+
     rows = []
-    after = str(int(end.timestamp() * 1000))
-    start_ms = int(start.timestamp() * 1000)
-    for _ in range(400):
-        r = requests.get(
+    cursor = int(end.timestamp() * 1000)
+    oldest_needed = int(start.timestamp() * 1000)
+
+    for _ in range(1200):
+        payload = md.get_json(
             "https://www.okx.com/api/v5/market/history-candles",
-            params={"instId": inst, "bar": bar,
-                    "after": after, "limit": 100}, timeout=30)
-        j = r.json()
+            {
+                "instId": symbol,
+                "bar": {
+                    "15m": "15m",
+                    "1h": "1H",
+                    "4h": "4H",
+                    "1d": "1Dutc",
+                }[tf],
+                "after": str(cursor),
+                "limit": 100,
+            },
+        )
+
+        if payload.get("code") != "0":
+            raise ValueError(
+                "OKX historical request rejected"
+            )
+
+        page = payload.get("data", [])
+
+        if not page:
+            break
+
+        rows.extend(
+            row for row in page
+            if row[8] == "1"
+        )
+
+        oldest = min(
+            int(row[0]) for row in page
+        )
+
+        if oldest >= cursor:
+            raise ValueError(
+                "OKX pagination did not advance"
+            )
+
+        if oldest <= oldest_needed:
+            break
+
+        cursor = oldest
         time.sleep(0.12)
-        if j.get("code") != "0":
-            raise RuntimeError("okx: " + str(j)[:150])
-        data = j.get("data") or []
-        if not data:
-            break
-        rows += [x for x in data if x[8] == "1"]
-        oldest = int(data[-1][0])
-        if oldest <= start_ms:
-            break
-        after = str(oldest)
+
+    if not rows:
+        raise ValueError("empty OKX history")
+
     d = pd.DataFrame(rows).iloc[:, :6]
     d.columns = ["t", "o", "h", "l", "c", "v"]
-    d = d.astype(float)
-    d.index = pd.to_datetime(d["t"], unit="ms", utc=True)
-    d = d.drop(columns="t").sort_index()
-    d = d[~d.index.duplicated()]
-    return d[d.index >= start]
+
+    d.index = pd.to_datetime(
+        d.pop("t").astype("int64"),
+        unit="ms",
+        utc=True,
+    )
+
+    d = gv.distinct(d)
+
+    d = md.clean(
+        d, tf, end + pd.Timedelta(seconds=2)
+    )
+
+    return d[
+        (d.index >= start)
+        & (d["end"] <= end)
+    ]
 
 
-def td_range(sym, tf, start, end):
-    key = os.environ["TWELVE_KEY"]
-    interval = {"15m": "15min", "1h": "1h", "4h": "4h", "1d": "1day"}[tf]
-    parts = []
-    cur_end = end
-    for _ in range(6):
-        r = requests.get(
-            "https://api.twelvedata.com/time_series",
-            params={"symbol": sym, "interval": interval,
-                    "outputsize": 5000, "timezone": "UTC",
-                    "apikey": key,
-                    "end_date": cur_end.strftime("%Y-%m-%d %H:%M:%S")},
-            timeout=60)
-        j = r.json()
-        time.sleep(8)
-        if "values" not in j:
-            if parts:
-                break
-            raise RuntimeError("twelvedata: " + str(j)[:200])
-        d = pd.DataFrame(j["values"])
-        d["t"] = pd.to_datetime(d["datetime"], utc=True)
-        d = d.set_index("t").sort_index()
-        parts.append(d)
-        oldest = d.index[0]
-        if oldest <= start or len(d) < 5000:
-            break
-        cur_end = oldest - pd.Timedelta(seconds=1)
-    d = pd.concat(parts).sort_index()
-    d = d[~d.index.duplicated()]
-    out = d[["open", "high", "low", "close"]].astype(float)
-    out.columns = ["o", "h", "l", "c"]
-    out["v"] = 0.0
-    out = out[out.index >= start]
-    return out.iloc[:-1]
+def load_asset(key, start, end):
+    provider, symbol = md.specs(key)[0]
 
+    getter = {
+        "binance": binance_range,
+        "twelve": twelve_range,
+        "okx": okx_range,
+    }.get(provider)
 
-def load_asset(kind, sym, bt_start, end):
-    day = pd.Timedelta(days=1)
-    if kind == "bin":
-        return {
-            "15m": klines_range(sym, "15m", bt_start - 4 * day, end),
-            "1h": klines_range(sym, "1h", bt_start - 14 * day, end),
-            "4h": klines_range(sym, "4h", bt_start - 55 * day, end),
-        }
-    if kind == "okx":
-        fr = None
-        use = sym
-        for attempt in (sym, None):
-            if attempt is None:
-                attempt = A["okx_find"](sym)
-                if not attempt:
-                    break
-            try:
-                fr = {
-                    "15m": okx_range(attempt, "15m", bt_start - 4 * day, end),
-                    "1h": okx_range(attempt, "1h", bt_start - 14 * day, end),
-                    "4h": okx_range(attempt, "4h", bt_start - 55 * day, end),
-                }
-                use = attempt
-                break
-            except Exception as e:
-                print("okx failed", attempt, ":", e)
-        if fr is None:
-            if sym.startswith("XAU"):
-                return load_asset("td", "XAU/USD", bt_start, end)
-            return load_asset("yf", "^NDX", bt_start, end)
+    warmup = {
+        "15m": 7,
+        "1h": 20,
+        "4h": 70,
+        "1d": 420,
+    }
+
+    frames = {}
+
+    for tf in ("15m", "1h", "4h", "1d"):
+        if key in ("BTC", "ETH", "SOL") and tf == "1d":
+            continue
+
         try:
-            fr["1d"] = okx_range(use, "1d", bt_start - 420 * day, end)
-        except Exception as e:
-            print("1d failed:", e)
-        return fr
-    if kind == "td":
-        fr = {
-            "15m": td_range(sym, "15m", bt_start - 4 * day, end),
-            "1h": td_range(sym, "1h", bt_start - 14 * day, end),
-            "4h": td_range(sym, "4h", bt_start - 55 * day, end),
-        }
+            beginning = (
+                start - pd.Timedelta(days=warmup[tf])
+            )
+
+            if provider == "yahoo":
+                frames[tf] = md.yahoo(
+                    symbol,
+                    tf,
+                    end,
+                    start=beginning,
+                )
+
+            else:
+                frames[tf] = getter(
+                    symbol,
+                    tf,
+                    beginning,
+                    end,
+                )
+
+            d = frames[tf]
+
+            LOG.info(
+                "BT_SOURCE asset=%s source=%s:%s "
+                "tf=%s bars=%d first=%s last_end=%s",
+                key,
+                provider,
+                symbol,
+                tf,
+                len(d),
+                d.index[0],
+                d["end"].iloc[-1],
+            )
+
+        except Exception as exc:
+            if tf != "1d":
+                raise
+
+            LOG.warning(
+                "%s daily context unavailable: %s",
+                key,
+                md.safe_error(exc),
+            )
+
+    frames["_source"] = provider + ":" + symbol
+    frames["_provider"] = provider
+    frames["_symbol"] = symbol
+
+    return frames
+
+
+def snapshot(fr, decision, gc=None):
+    limit = (
+        500 if fr["_provider"] == "binance"
+        else 400
+    )
+
+    output = {
+        key: fr[key][
+            fr[key]["end"] <= decision
+        ].tail(limit)
+        for key in ("15m", "1h", "4h", "1d")
+        if key in fr
+    }
+
+    output.update({
+        key: value
+        for key, value in fr.items()
+        if key.startswith("_")
+    })
+
+    output["_decision_at"] = decision
+    output["_backtest"] = True
+
+    if gc is not None:
+        output["_gc15"] = gc
+
+    return output
+
+
+def empty_state():
+    return {
+        "n": 0,
+        "active": {},
+        "watch": {},
+        "closed": [],
+        "cool": {},
+        "outbox": [],
+        "event_ids": [],
+    }
+
+
+def run_asset(agent, key, fr, btc, start, end, gc=None):
+    st = empty_state()
+
+    metrics = {
+        "analyses": 0,
+        "analysis_errors": 0,
+        "missing_context": 0,
+        "cost_rejections": 0,
+        "first_decision": None,
+        "last_decision": None,
+        "gc_available_decisions": 0,
+        "first_gc_decision": None,
+        "last_gc_decision": None,
+        "open_at_end": None,
+        "source": fr["_source"],
+    }
+
+    decisions = [
+        engine.stamp(t) + SCAN_DELAY
+        for t in fr["15m"]["end"]
+        if (
+            start
+            <= engine.stamp(t) + SCAN_DELAY
+            <= end
+        )
+    ]
+
+    if not decisions:
+        raise ValueError(
+            "no candles in requested test period"
+        )
+
+    for index, decision in enumerate(decisions):
+        current = snapshot(fr, decision, gc)
+        position = st["active"].get(key)
+
+        if position:
+            engine.manage(
+                st,
+                position,
+                current,
+                decision,
+                agent,
+            )
+
+            if position["state"] in (
+                "CLOSED", "INVALIDATED", "EXPIRED"
+            ):
+                del st["active"][key]
+
+            st["outbox"].clear()
+            continue
+
+        if index % STEP:
+            continue
+
+        fresh, reason = md.freshness(
+            current, key, decision
+        )
+
+        if not fresh:
+            metrics["missing_context"] += 1
+            continue
+
+        cooldown = st["cool"].get(key)
+
+        if (
+            cooldown
+            and decision - engine.stamp(cooldown)
+            < pd.Timedelta(hours=2)
+        ):
+            continue
+
+        btc_direction = None
+
+        if btc is not None and key in ("ETH", "SOL"):
+            btc_snapshot = snapshot(btc, decision)
+
+            if md.freshness(
+                btc_snapshot, "BTC", decision
+            )[0]:
+                trend4 = agent.trend(
+                    btc_snapshot["4h"]
+                )
+
+                trend1 = agent.trend(
+                    btc_snapshot["1h"]
+                )
+
+                btc_direction = (
+                    trend4
+                    if trend4 == trend1
+                    else 0
+                )
+
         try:
-            fr["1d"] = td_range(sym, "1d", bt_start - 420 * day, end)
-        except Exception as e:
-            print("1d failed:", e)
-        return fr
-    f15 = A["yf_frame"](sym, "59d", "15m")
-    f1h = A["yf_frame"](sym, "700d", "1h")
-    f4h = f1h.resample("4h").agg(
-        {"o": "first", "h": "max", "l": "min",
-         "c": "last", "v": "sum"}).dropna().iloc[:-1]
-    fr = {"15m": f15, "1h": f1h, "4h": f4h}
-    try:
-        fr["1d"] = A["yf_frame"](sym, "2y", "1d")
-    except Exception as e:
-        print("1d failed:", e)
-    return fr
+            result = agent.analyze(
+                key,
+                current,
+                btc_direction,
+            )
+
+            metrics["analyses"] += 1
+
+            if metrics["first_decision"] is None:
+                metrics["first_decision"] = (
+                    decision.isoformat()
+                )
+
+            metrics["last_decision"] = (
+                decision.isoformat()
+            )
+
+            if result.get("gc_profile"):
+                metrics["gc_available_decisions"] += 1
+
+                if metrics["first_gc_decision"] is None:
+                    metrics["first_gc_decision"] = (
+                        decision.isoformat()
+                    )
+
+                metrics["last_gc_decision"] = (
+                    decision.isoformat()
+                )
+
+            if result["tier"] in ("A", "ARMED"):
+                position = engine.make_setup(
+                    st,
+                    result,
+                    current,
+                    decision,
+                )
+
+                if (
+                    position["cost_bps"] < 0
+                    or not pd.notna(
+                        position["cost_bps"]
+                    )
+                ):
+                    raise ValueError(
+                        "invalid assumed execution cost"
+                    )
+
+                if engine.cost_r(position) > 0.35:
+                    metrics["cost_rejections"] += 1
+
+                else:
+                    st["active"][key] = position
+
+        except Exception as exc:
+            metrics["analysis_errors"] += 1
+
+            if metrics["analysis_errors"] <= 3:
+                LOG.error(
+                    "BT_ANALYSIS_ERROR %s %s %s",
+                    key,
+                    decision,
+                    md.safe_error(exc),
+                )
+
+        st["outbox"].clear()
+
+    if key in st["active"]:
+        metrics["open_at_end"] = st["active"][key]
+
+    return st["closed"], metrics
 
 
-def slice_at(fr, T):
-    d15 = fr["15m"].loc[:T].tail(300)
-    i1 = fr["1h"].index
-    d1 = fr["1h"][i1 <= T - pd.Timedelta(minutes=45)].tail(300)
-    i4 = fr["4h"].index
-    d4 = fr["4h"][i4 <= T - pd.Timedelta(minutes=225)].tail(300)
-    return d15, d1, d4
+def summary(trades):
+    ordered = sorted(
+        trades,
+        key=lambda item: item["t_close"],
+    )
+
+    results = [
+        float(item["r"]) for item in ordered
+    ]
+
+    profit = sum(
+        result for result in results
+        if result > 0
+    )
+
+    loss = -sum(
+        result for result in results
+        if result < 0
+    )
+
+    equity = peak = drawdown = 0.0
+
+    for result in results:
+        equity += result
+        peak = max(peak, equity)
+        drawdown = max(
+            drawdown, peak - equity
+        )
+
+    return {
+        "trades": len(results),
+        "win_pct": (
+            100 * sum(r > 0 for r in results)
+            / len(results)
+            if results else None
+        ),
+        "net_R": sum(results),
+        "mean_R": (
+            sum(results) / len(results)
+            if results else None
+        ),
+        "profit_factor": (
+            profit / loss
+            if loss
+            else ("infinity" if profit else None)
+        ),
+        "max_closed_trade_drawdown_R": drawdown,
+        "ambiguous_trades": sum(
+            bool(item.get("ambiguous"))
+            for item in ordered
+        ),
+    }
 
 
-def btc_dir_at(btc, T, cache):
-    if btc is None:
-        return None
-    if T not in cache:
-        d15, d1, d4 = slice_at(btc, T)
-        if len(d1) < 60 or len(d4) < 60:
-            cache[T] = None
-        else:
-            a = A["trend"](d4)
-            b = A["trend"](d1)
-            cache[T] = a if a == b else 0
-    return cache[T]
+def line(trades):
+    result = summary(trades)
+
+    if not result["trades"]:
+        return "0 صفقة مغلقة"
+
+    pf = result["profit_factor"]
+
+    pf = (
+        f"{pf:.2f}"
+        if isinstance(pf, (int, float))
+        else str(pf)
+    )
+
+    return (
+        f"{result['trades']} صفقة | "
+        f"نجاح {result['win_pct']:.0f}% | "
+        f"صافي {result['net_R']:+.2f}R | "
+        f"متوسط {result['mean_R']:+.2f}R | "
+        f"PF {pf} | "
+        "هبوط مغلق "
+        f"{result['max_closed_trade_drawdown_R']:.2f}R | "
+        f"ملتبسة {result['ambiguous_trades']}"
+    )
 
 
-def run_asset(key, fr, btc, cache, bt_start):
-    st = {"n": 0, "closed": [], "cool": {}}
-    sp = None
-    idx = fr["15m"].index
-    steps = [T for T in idx if T >= bt_start][::STEP]
-    for T in steps:
-        now = T + pd.Timedelta(minutes=15)
-        d15, d1, d4 = slice_at(fr, T)
-        if len(d15) < 120 or len(d1) < 60 or len(d4) < 60:
-            continue
-        price = float(d15["c"].iloc[-1])
-        if sp:
-            A["manage"](st, sp, d15, d1, price, now)
-            if sp["state"] in ("CLOSED", "INVALIDATED", "EXPIRED"):
-                sp = None
-            continue
-        cool = st["cool"].get(key)
-        if cool and now - pd.Timestamp(cool) < pd.Timedelta(hours=2):
-            continue
-        if A["market_closed"](key, now):
-            continue
-        bd = None
-        if key in ("ETH", "SOL"):
-            bd = btc_dir_at(btc, T, cache)
-        frs = {"15m": d15, "1h": d1, "4h": d4}
-        if "1d" in fr:
-            x = fr["1d"]
-            frs["1d"] = x[x.index <= T - pd.Timedelta(minutes=1425)].tail(400)
-        try:
-            res = A["analyze"](key, frs, bd)
-        except Exception:
-            continue
-        if res["tier"] in ("A", "ARMED"):
-            sp = A["open_setup"](st, res, d15.index[-1])
-    return st["closed"], sp is not None
+def report(mode, results, start, end):
+    all_trades = [
+        trade
+        for value in results.values()
+        for trade in value["trades"]
+    ]
 
+    cutoff = start + (end - start) * 2 / 3
 
-def summ(trades):
-    if not trades:
-        return "0 صفقة"
-    rs = [t["r"] for t in sorted(trades, key=lambda x: x["t_close"])]
-    n = len(rs)
-    wins = sum(1 for r in rs if r > 0)
-    gp = sum(r for r in rs if r > 0)
-    gl = -sum(r for r in rs if r <= 0)
-    pf = f"{gp / gl:.2f}" if gl > 0 else "∞"
-    eq = pk = dd = 0.0
-    for r in rs:
-        eq += r
-        pk = max(pk, eq)
-        dd = max(dd, pk - eq)
-    return (f"{n} صفقة | نجاح {wins / n * 100:.0f}% | "
-            f"متوسط R {sum(rs) / n:+.2f} | مجموع {sum(rs):+.1f}R | "
-            f"PF {pf} | هبوط أقصى {dd:.1f}R")
+    first = [
+        trade for trade in all_trades
+        if engine.stamp(trade["t_decl"]) < cutoff
+    ]
 
+    last = [
+        trade for trade in all_trades
+        if engine.stamp(trade["t_decl"]) >= cutoff
+    ]
 
-def run_mode(use_ict, data, bt_start):
-    A["USE_ICT"] = use_ict
-    cache = {}
-    out = {}
-    for key, fr in data.items():
-        tr, op = run_asset(key, fr, data.get("BTC"), cache, bt_start)
-        out[key] = tr
-        print("ICT" if use_ict else "NO-ICT", key, len(tr),
-              "closed | open at end:", op)
-    return out
+    lines = [
+        f"🧪 باكتيست v3 | ICT {mode} | محرك scanner.py",
+        "الفترة المطلوبة UTC: "
+        f"{start.isoformat()} → {end.isoformat()}",
+        "الكل: " + line(all_trades),
+        "أول ثلثين حسب إعلان الإعداد: " + line(first),
+        "آخر ثلث حسب إعلان الإعداد: " + line(last),
+    ]
 
+    for key, value in results.items():
+        metrics = value["coverage"]
 
-def report(title, trades, bt_start, end):
-    all_t = [t for v in trades.values() for t in v]
-    cut = bt_start + (end - bt_start) * 2 / 3
-    lines = [title, "الكل: " + summ(all_t)]
-    a = [t for t in all_t if pd.Timestamp(t["t_close"]) <= cut]
-    b = [t for t in all_t if pd.Timestamp(t["t_close"]) > cut]
-    lines.append("أول ثلثين: " + summ(a))
-    lines.append("آخر ثلث: " + summ(b))
-    lines.append("شراء فقط: " + summ([t for t in all_t if t["side"] == 1]))
-    lines.append("بيع فقط: " + summ([t for t in all_t if t["side"] == -1]))
-    for sty in ("Breakout", "Pullback", "BreakRetest", "VProfile",
-                "ZBounce", "ZBreak"):
-        sub = [t for t in all_t if t["style"] == sty]
-        if sub:
-            lines.append(f"{sty}: {summ(sub)}")
-    zt = [t for t in all_t if str(t["style"]).startswith("Z")]
-    for rk in ("منخفضة", "متوسطة", "عالية"):
-        sub = [t for t in zt if t.get("risk") == rk]
-        if sub:
-            lines.append(f"مخاطرة {rk} (ذهب/ناسداك): {summ(sub)}")
-    for k, v in trades.items():
-        lines.append(f"{ASSETS[k][2]}: {summ(v)}")
+        lines.extend([
+            key + ": " + line(value["trades"]),
+            f"  المصدر {metrics['source']} | "
+            f"قرار أول {metrics['first_decision']} | "
+            f"أخير {metrics['last_decision']}",
+            f"  تحليلات {metrics['analyses']} | "
+            f"أخطاء {metrics['analysis_errors']} | "
+            f"سياق ناقص {metrics['missing_context']} | "
+            "لقطات GC صالحة "
+            f"{metrics['gc_available_decisions']} | "
+            "مفتوحة بالنهاية "
+            f"{bool(metrics['open_at_end'])}",
+            "  تغطية GC الفعلية: "
+            f"{metrics['first_gc_decision']} → "
+            f"{metrics['last_gc_decision']}",
+        ])
+
+    lines.extend([
+        "كلفة كلية مفترضة ذهاب/عودة: "
+        f"{os.environ.get('ROUNDTRIP_COST_BPS', '14')} "
+        "نقطة أساس.",
+        "GOLD_VOLUME_MODE="
+        f"{os.environ.get('GOLD_VOLUME_MODE', 'confirm')} | "
+        "كل هدف ثلث الحجم.",
+        "تأخير الفحص المفترض بعد إغلاق الشمعة: "
+        f"{SCAN_DELAY.total_seconds():g} ثانية؛ "
+        "تأخير GitHub الحقيقي متغير.",
+        "أخبار الماضي غير معاد تشغيلها. "
+        "تأخير المصدر التاريخي غير معلوم بالكامل؛ "
+        "GC عليه تأخير مفترض محافظ.",
+        "تغطية Yahoo أقصر من 90 يوم؛ "
+        "راجع التواريخ الفعلية. الانقسام الزمني "
+        "وصفي وليس إثبات اختبار خارج العينة.",
+        "الهبوط من صفقات مغلقة، ولا يشمل "
+        "التذبذب العائم. النتائج لا تثبت "
+        "تفوقاً أو تضمن المستقبل.",
+    ])
+
     return "\n".join(lines)
 
 
-def send(text):
-    print(text)
-    requests.post(
-        f"https://api.telegram.org/bot{os.environ['TG_TOKEN']}/sendMessage",
-        json={"chat_id": os.environ["TG_CHAT"], "text": text[:4000]},
-        timeout=30)
+def save_results(mode, results, text, start, end):
+    OUT.mkdir(exist_ok=True)
+
+    trades = [
+        trade
+        for value in results.values()
+        for trade in value["trades"]
+    ]
+
+    payload = {
+        "requested_start": start.isoformat(),
+        "requested_end": end.isoformat(),
+        "summary": summary(trades),
+        "assets": results,
+        "assumptions": {
+            "roundtrip_cost_bps": os.environ.get(
+                "ROUNDTRIP_COST_BPS", "14"
+            ),
+            "gc_delay_minutes": os.environ.get(
+                "GC_DELAY_MINUTES", "20"
+            ),
+            "gold_volume_mode": os.environ.get(
+                "GOLD_VOLUME_MODE", "confirm"
+            ),
+            "news_replayed": False,
+            "scan_every_n_15m_bars": STEP,
+            "scan_delay_seconds": (
+                SCAN_DELAY.total_seconds()
+            ),
+        },
+    }
+
+    (OUT / f"results_{mode}.json").write_text(
+        json.dumps(
+            payload,
+            ensure_ascii=False,
+            indent=2,
+            allow_nan=False,
+        ),
+        encoding="utf-8",
+    )
+
+    (OUT / f"report_{mode}.txt").write_text(
+        text,
+        encoding="utf-8",
+    )
+
+    with (
+        OUT / f"trades_{mode}.csv"
+    ).open(
+        "w",
+        encoding="utf-8-sig",
+        newline="",
+    ) as handle:
+        fields = [
+            "id", "key", "side", "style",
+            "entry", "stop0", "t_decl", "t0",
+            "t_close", "exit", "r", "gross_r",
+            "ambiguous", "source",
+        ]
+
+        writer = csv.DictWriter(
+            handle,
+            fieldnames=fields,
+            extrasaction="ignore",
+        )
+
+        writer.writeheader()
+        writer.writerows(trades)
+
+
+def send_report(text):
+    st = empty_state()
+
+    engine.event(
+        st,
+        text,
+        "backtest-" + str(int(time.time())),
+    )
+
+    sent = engine.flush(
+        st,
+        lambda _: None,
+        os.environ["TG_TOKEN"],
+        os.environ["TG_CHAT"],
+    )
+
+    if not sent:
+        raise RuntimeError(
+            "Telegram report failed; "
+            "full results retained as artifacts"
+        )
 
 
 def main():
-    end = pd.Timestamp.now(tz="UTC").floor("15min")
-    bt_start = end - pd.Timedelta(days=DAYS)
+    if (
+        DAYS < 1
+        or STEP < 1
+        or SCAN_DELAY < pd.Timedelta(0)
+    ):
+        raise ValueError(
+            "BT_DAYS and BT_STEP must be positive"
+        )
+
+    end = pd.Timestamp.now(
+        tz="UTC"
+    ).floor("15min")
+
+    start = end - pd.Timedelta(days=DAYS)
+
+    agent = load_strategy()
     data = {}
-    for key, (kind, sym, name) in ASSETS.items():
+    failures = {}
+
+    for key in agent.ASSETS:
         try:
-            data[key] = load_asset(kind, sym, bt_start, end)
-            print(key, "loaded",
-                  {k: len(v) for k, v in data[key].items()})
-        except Exception as e:
-            print(key, "load error:", e)
+            data[key] = load_asset(
+                key, start, end
+            )
 
-    note = (f"\n\nآخر {DAYS} يوم. بدون عمولة ولا سبريد ولا فوائد اقتراض، "
-            "فالواقع أسوأ. تنبيهات التنبيه المبكر ما تنحسب هنا. "
-            "النتيجة ما تضمن المستقبل.")
-    with_ict = run_mode(True, data, bt_start)
-    send(report("🧪 باك تيست v11 | مع ICT (بدون عمولة)",
-                with_ict, bt_start, end) + note)
-    if COMPARE_ICT:
-        no_ict = run_mode(False, data, bt_start)
-        send(report("🧪 باك تيست v11 | بدون ICT (بدون عمولة)",
-                    no_ict, bt_start, end) + note)
+        except Exception as exc:
+            failures[key] = md.safe_error(exc)
+
+            LOG.error(
+                "BT_LOAD_ERROR %s %s",
+                key,
+                failures[key],
+            )
+
+    gc = None
+
+    if (
+        "GOLD" in data
+        and os.environ.get(
+            "GOLD_VOLUME_MODE", "confirm"
+        ) != "off"
+    ):
+        try:
+            gc = gv.download(
+                start - pd.Timedelta(days=7),
+                end,
+            )
+
+        except Exception as exc:
+            LOG.error(
+                "BT_GC_ERROR %s",
+                md.safe_error(exc),
+            )
+
+    OUT.mkdir(exist_ok=True)
+
+    (OUT / "load_errors.json").write_text(
+        json.dumps(
+            failures,
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+    if not data:
+        raise RuntimeError(
+            "no assets loaded; "
+            "no backtest result claimed"
+        )
+
+    modes = (
+        [True, False]
+        if os.environ.get(
+            "COMPARE_ICT", "false"
+        ).lower() == "true"
+        else [True]
+    )
+
+    had_errors = bool(failures)
+
+    for use_ict in modes:
+        agent.USE_ICT = use_ict
+        results = {}
+
+        for key, fr in data.items():
+            trades, coverage = run_asset(
+                agent,
+                key,
+                fr,
+                data.get("BTC"),
+                start,
+                end,
+                gc if key == "GOLD" else None,
+            )
+
+            had_errors |= (
+                coverage["analysis_errors"] > 0
+            )
+
+            results[key] = {
+                "trades": trades,
+                "coverage": coverage,
+                "summary": summary(trades),
+            }
+
+        name = "on" if use_ict else "off"
+        text = report(name, results, start, end)
+
+        if failures:
+            text += (
+                "\nأصول لم تختبر بسبب فشل التحميل: "
+                + ", ".join(failures)
+            )
+
+        print(text)
+
+        save_results(
+            name,
+            results,
+            text,
+            start,
+            end,
+        )
+
+        if os.environ.get(
+            "BT_SEND_TELEGRAM", "false"
+        ).lower() == "true":
+            brief = (
+                "\n".join(text.splitlines()[:6])
+                + "\nالتفاصيل والتغطية والأخطاء في ملفات "
+                "backtest-results داخل Actions."
+            )
+
+            send_report(brief)
+
+    if had_errors:
+        raise RuntimeError(
+            "partial/invalid run: "
+            "see retained load and analysis errors"
+        )
 
 
-main()
+if __name__ == "__main__":
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)s %(message)s",
+    )
+
+    main()
