@@ -1,0 +1,5 @@
+numpy>=1.26,<3
+pandas>=2.2,<3
+requests>=2.32,<3
+yfinance>=0.2.54,<1
+pandas_market_calendars>=4.6,<6
