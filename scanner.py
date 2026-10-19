@@ -18,12 +18,12 @@ VERSION = "paper-v2"
 
 
 def stamp(value):
-    timestamp = pd.Timestamp(value)
-
-    if timestamp.tzinfo is None:
-        return timestamp.tz_localize("UTC")
-
-    return timestamp.tz_convert("UTC")
+    t = pd.Timestamp(value)
+    return (
+        t.tz_localize("UTC")
+        if t.tzinfo is None
+        else t.tz_convert("UTC")
+    )
 
 
 def event(st, text, identity=None):
@@ -40,9 +40,7 @@ def event(st, text, identity=None):
     units = 0
 
     for character in text:
-        size = len(
-            character.encode("utf-16-le")
-        ) // 2
+        size = len(character.encode("utf-16-le")) // 2
 
         if units + size > 3500:
             chunks.append(buffer)
@@ -79,13 +77,11 @@ def flush(st, save, token, chat):
                 },
                 timeout=(8, 25),
             )
-
             body = response.json()
 
         except Exception:
             LOG.error(
-                "Telegram send failed; "
-                "durable outbox retained"
+                "Telegram send failed; durable outbox retained"
             )
             return False
 
@@ -105,13 +101,11 @@ def flush(st, save, token, chat):
 
 
 def cost_r(sp):
-    risk = abs(sp["entry"] - sp["stop0"])
-
     return (
         sp["entry"]
         * sp.get("cost_bps", 0.0)
         / 10000
-        / risk
+        / abs(sp["entry"] - sp["stop0"])
     )
 
 
@@ -119,21 +113,20 @@ def close_trade(st, sp, exit_price, label, when):
     side = sp["side"]
     risk = abs(sp["entry"] - sp["stop0"])
 
-    completed = sum(
-        (
-            (sp["tps"][index] - sp["entry"])
-            * side / risk / 3
-        )
-        for index in range(3)
-        if sp["hits"][index]
+    done = sum(
+        (sp["tps"][i] - sp["entry"]) * side / risk / 3
+        for i in range(3)
+        if sp["hits"][i]
     )
 
     remaining = (3 - sum(sp["hits"])) / 3
 
-    gross = completed + (
-        remaining
+    gross = (
+        done
+        + remaining
         * (exit_price - sp["entry"])
-        * side / risk
+        * side
+        / risk
     )
 
     sp.update(
@@ -149,9 +142,7 @@ def close_trade(st, sp, exit_price, label, when):
         dict(sp, hits=list(sp["hits"]))
     )
 
-    st["cool"][sp["key"]] = stamp(
-        when
-    ).isoformat()
+    st["cool"][sp["key"]] = stamp(when).isoformat()
 
     ambiguity = (
         "\nترتيب الحركة داخل شمعة ملتبس؛ "
@@ -178,9 +169,7 @@ def make_setup(st, res, fr, now):
     targets = list(map(float, plan["tps"]))
 
     if len(targets) != 3:
-        raise ValueError(
-            "exactly three targets required"
-        )
+        raise ValueError("exactly three targets required")
 
     if not all(
         math.isfinite(value)
@@ -198,12 +187,10 @@ def make_setup(st, res, fr, now):
         raise ValueError("invalid plan geometry")
 
     if not all(
-        (targets[index + 1] - targets[index]) * side > 0
-        for index in (0, 1)
+        (targets[i + 1] - targets[i]) * side > 0
+        for i in (0, 1)
     ):
-        raise ValueError(
-            "targets must be ordered"
-        )
+        raise ValueError("targets must be ordered")
 
     st["n"] += 1
 
@@ -235,9 +222,7 @@ def make_setup(st, res, fr, now):
         "source": fr["_source"],
         "engine_version": VERSION,
         "cost_bps": float(
-            os.environ.get(
-                "ROUNDTRIP_COST_BPS", "14"
-            )
+            os.environ.get("ROUNDTRIP_COST_BPS", "14")
         ),
         "zone": res.get("zone"),
         "ambiguous": False,
@@ -293,10 +278,7 @@ def manage(st, sp, fr, now, agent):
         return
 
     data = fr["15m"]
-    first = stamp(
-        sp.get("not_before", sp["t0"])
-    )
-
+    first = stamp(sp.get("not_before", sp["t0"]))
     rows = data[data.index >= first]
 
     if sp.get("seen"):
@@ -316,7 +298,8 @@ def manage(st, sp, fr, now, agent):
         missing = (
             indexes[0] > expected
             or any(
-                later - earlier != pd.Timedelta(minutes=15)
+                later - earlier
+                != pd.Timedelta(minutes=15)
                 for earlier, later in zip(
                     indexes, indexes[1:]
                 )
@@ -387,11 +370,8 @@ def manage(st, sp, fr, now, agent):
                 invalid = (
                     abs(entry - sp["reference_entry"])
                     > 0.35 * reference_risk
-
                     or (entry - sp["stop0"]) * side <= 0
-
                     or (sp["tps"][0] - entry) * side <= 0
-
                     or (
                         (sp["tps"][1] - entry)
                         * side
@@ -455,17 +435,17 @@ def manage(st, sp, fr, now, agent):
         )
 
         next_targets = [
-            index for index in range(3)
-            if not sp["hits"][index]
+            i for i in range(3)
+            if not sp["hits"][i]
         ]
 
         any_target = any(
             (
-                high >= sp["tps"][index]
+                high >= sp["tps"][i]
                 if side == 1
-                else low <= sp["tps"][index]
+                else low <= sp["tps"][i]
             )
-            for index in next_targets
+            for i in next_targets
         )
 
         if stop_hit:
@@ -488,26 +468,26 @@ def manage(st, sp, fr, now, agent):
             )
             return
 
-        for index in next_targets:
+        for i in next_targets:
             hit = (
-                high >= sp["tps"][index]
+                high >= sp["tps"][i]
                 if side == 1
-                else low <= sp["tps"][index]
+                else low <= sp["tps"][i]
             )
 
             if not hit:
                 break
 
-            sp["hits"][index] = True
+            sp["hits"][i] = True
 
             event(
                 st,
-                f"🎯 {sp['id']} | TP{index + 1} تحقق @ "
-                f"{agent.fmt(sp['tps'][index])}",
-                sp["id"] + f":tp{index + 1}",
+                f"🎯 {sp['id']} | TP{i + 1} تحقق @ "
+                f"{agent.fmt(sp['tps'][i])}",
+                sp["id"] + f":tp{i + 1}",
             )
 
-            if index == 2:
+            if i == 2:
                 close_trade(
                     st, sp, sp["tps"][2], "TP3", end
                 )
@@ -515,7 +495,7 @@ def manage(st, sp, fr, now, agent):
 
             sp["stop"] = (
                 sp["entry"]
-                if index == 0
+                if i == 0
                 else sp["tps"][0]
             )
 
@@ -523,7 +503,7 @@ def manage(st, sp, fr, now, agent):
                 st,
                 f"🔒 {sp['id']} | الوقف الورقي صار "
                 f"{agent.fmt(sp['stop'])}",
-                sp["id"] + f":sl{index + 1}",
+                sp["id"] + f":sl{i + 1}",
             )
 
             moved_stop_hit = (
@@ -574,8 +554,8 @@ def manage(st, sp, fr, now, agent):
 
         event(
             st,
-            f"⌛ {sp['id']}: انتهت صلاحية الإعداد "
-            "بدون دخول.",
+            f"⌛ {sp['id']}: انتهت صلاحية "
+            "الإعداد بدون دخول.",
             sp["id"] + ":expired",
         )
 
@@ -794,8 +774,10 @@ def run(agent, now=None):
 
         if not fresh:
             LOG.warning(
-                "SKIP asset=%s %s", key, reason
+                "SKIP asset=%s %s",
+                key, reason,
             )
+
             summary.append(f"{key}: {reason}")
             continue
 
@@ -821,12 +803,25 @@ def run(agent, now=None):
 
         try:
             result = agent.analyze(
-                key, frames, btc_direction
+                key,
+                frames,
+                btc_direction,
             )
 
             result = news.apply(
-                result, news_context
+                result,
+                news_context,
             )
+
+            # تفاصيل الذهب لتشخيص شروط الإعداد الناقصة.
+            if key == "GOLD":
+                LOG.info(
+                    "GOLD_DETAILS observations=%s missing=%s",
+                    result.get("obs", "").replace(
+                        "\n", " | "
+                    ),
+                    result.get("miss", []),
+                )
 
             st["last_analysis"][key] = (
                 last_close.isoformat()
@@ -848,7 +843,10 @@ def run(agent, now=None):
 
             if result["tier"] in ("A", "ARMED"):
                 position = make_setup(
-                    st, result, frames, now
+                    st,
+                    result,
+                    frames,
+                    now,
                 )
 
                 if (
@@ -959,7 +957,9 @@ def run(agent, now=None):
             )
 
     for text in news.alerts(
-        news_context, st, now
+        news_context,
+        st,
+        now,
     ):
         event(st, text)
 
@@ -975,7 +975,8 @@ def run(agent, now=None):
         )
 
     return (
-        0 if flush(st, agent.save, token, chat)
+        0
+        if flush(st, agent.save, token, chat)
         else 1
     )
 
