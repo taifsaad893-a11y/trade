@@ -49,6 +49,7 @@ def klines_range(sym, tf, start, end):
 
 
 def okx_range(inst, tf, start, end):
+    inst = A["okx_resolve"](inst)
     bar = {"15m": "15m", "1h": "1H", "4h": "4H", "1d": "1Dutc"}[tf]
     rows = []
     after = str(int(end.timestamp() * 1000))
@@ -124,19 +125,29 @@ def load_asset(kind, sym, bt_start, end):
             "4h": klines_range(sym, "4h", bt_start - 55 * day, end),
         }
     if kind == "okx":
-        try:
-            fr = {
-                "15m": okx_range(sym, "15m", bt_start - 4 * day, end),
-                "1h": okx_range(sym, "1h", bt_start - 14 * day, end),
-                "4h": okx_range(sym, "4h", bt_start - 55 * day, end),
-            }
-        except Exception as e:
-            print("okx failed, trying fallback:", e)
+        fr = None
+        use = sym
+        for attempt in (sym, None):
+            if attempt is None:
+                attempt = A["okx_find"](sym)
+                if not attempt:
+                    break
+            try:
+                fr = {
+                    "15m": okx_range(attempt, "15m", bt_start - 4 * day, end),
+                    "1h": okx_range(attempt, "1h", bt_start - 14 * day, end),
+                    "4h": okx_range(attempt, "4h", bt_start - 55 * day, end),
+                }
+                use = attempt
+                break
+            except Exception as e:
+                print("okx failed", attempt, ":", e)
+        if fr is None:
             if sym.startswith("XAU"):
                 return load_asset("td", "XAU/USD", bt_start, end)
             return load_asset("yf", "^NDX", bt_start, end)
         try:
-            fr["1d"] = okx_range(sym, "1d", bt_start - 420 * day, end)
+            fr["1d"] = okx_range(use, "1d", bt_start - 420 * day, end)
         except Exception as e:
             print("1d failed:", e)
         return fr
