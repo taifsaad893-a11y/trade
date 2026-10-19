@@ -7,7 +7,6 @@ import numpy as np
 import pandas as pd
 import requests
 
-
 LOG = logging.getLogger(__name__)
 
 DUR = {
@@ -18,7 +17,10 @@ DUR = {
 }
 
 REDACTIONS = (
-    "TWELVE_KEY", "GEMINI_KEY", "TG_TOKEN", "TG_CHAT"
+    "TWELVE_KEY",
+    "GEMINI_KEY",
+    "TG_TOKEN",
+    "TG_CHAT",
 )
 
 
@@ -27,6 +29,7 @@ def safe_error(exc):
 
     for name in REDACTIONS:
         value = os.environ.get(name)
+
         if value:
             text = text.replace(value, "[REDACTED]")
 
@@ -41,6 +44,7 @@ def get_json(url, params=None):
                 params=params,
                 timeout=(8, 25),
             )
+
         except requests.RequestException:
             if attempt == 2:
                 raise RuntimeError(
@@ -51,12 +55,15 @@ def get_json(url, params=None):
             continue
 
         if (
-            response.status_code in (429, 500, 502, 503, 504)
+            response.status_code in (
+                429, 500, 502, 503, 504
+            )
             and attempt < 2
         ):
             delay = int(
                 response.headers.get("Retry-After", "2")
             )
+
             time.sleep(min(10, max(1, delay)))
             continue
 
@@ -68,6 +75,7 @@ def get_json(url, params=None):
 
         try:
             return response.json()
+
         except ValueError:
             raise RuntimeError(
                 f"{urlparse(url).hostname}: invalid JSON"
@@ -76,57 +84,53 @@ def get_json(url, params=None):
     raise RuntimeError("request failed")
 
 
-def clean(data, tf, now, close_times=None):
-    data = data.copy()
-    data.index = pd.to_datetime(data.index, utc=True)
+def clean(d, tf, now, close_times=None):
+    from gold_volume import distinct
 
-    if data.index.has_duplicates:
-        raise ValueError("duplicate candle timestamps")
-
-    data = data.sort_index()
+    d = d.copy()
+    d.index = pd.to_datetime(d.index, utc=True)
+    d = distinct(d)
 
     for column in ("o", "h", "l", "c", "v"):
-        data[column] = pd.to_numeric(
-            data[column], errors="coerce"
+        d[column] = pd.to_numeric(
+            d[column], errors="coerce"
         )
 
     if close_times is not None:
-        data["end"] = pd.Series(
+        d["end"] = pd.Series(
             pd.to_datetime(close_times, utc=True),
-            index=data.index,
+            index=d.index,
         )
     else:
-        data["end"] = data.index + DUR[tf]
+        d["end"] = d.index + DUR[tf]
 
-    data = data[
-        data["end"] <= now - pd.Timedelta(seconds=2)
+    d = d[
+        d["end"] <= now - pd.Timedelta(seconds=2)
     ]
 
-    if data.empty:
+    if d.empty:
         raise ValueError("no closed candles")
 
     columns = ["o", "h", "l", "c", "v"]
 
-    if not np.isfinite(data[columns].to_numpy()).all():
+    if not np.isfinite(d[columns].to_numpy()).all():
         raise ValueError("nonfinite OHLCV")
 
     invalid = (
-        (data[["o", "h", "l", "c"]] <= 0).any().any()
-        or (data["v"] < 0).any()
+        (d[["o", "h", "l", "c"]] <= 0).any().any()
+        or (d["v"] < 0).any()
         or (
-            data["h"]
-            < data[["o", "l", "c"]].max(axis=1)
+            d["h"] < d[["o", "l", "c"]].max(axis=1)
         ).any()
         or (
-            data["l"]
-            > data[["o", "h", "c"]].min(axis=1)
+            d["l"] > d[["o", "h", "c"]].min(axis=1)
         ).any()
     )
 
     if invalid:
         raise ValueError("invalid OHLCV bounds")
 
-    return data
+    return d
 
 
 def binance(symbol, tf, now):
@@ -149,29 +153,29 @@ def binance(symbol, tf, now):
             if not isinstance(rows, list) or not rows:
                 raise ValueError("no klines")
 
-            data = pd.DataFrame(rows).iloc[
+            d = pd.DataFrame(rows).iloc[
                 :, [0, 1, 2, 3, 4, 5, 6, 9]
             ]
 
-            data.columns = [
+            d.columns = [
                 "t", "o", "h", "l",
                 "c", "v", "end", "tb",
             ]
 
-            data.index = pd.to_datetime(
-                data.pop("t").astype("int64"),
+            d.index = pd.to_datetime(
+                d.pop("t").astype("int64"),
                 unit="ms",
                 utc=True,
             )
 
             ends = pd.to_datetime(
-                data.pop("end").astype("int64") + 1,
+                d.pop("end").astype("int64") + 1,
                 unit="ms",
                 utc=True,
             )
 
-            data["tb"] = pd.to_numeric(data["tb"])
-            output = clean(data, tf, now, ends)
+            d["tb"] = pd.to_numeric(d["tb"])
+            output = clean(d, tf, now, ends)
 
             if (
                 (output["tb"] < 0)
@@ -193,7 +197,10 @@ def binance(symbol, tf, now):
 
 
 def okx(symbol, tf, now):
-    kind = "SWAP" if symbol.endswith("-SWAP") else "SPOT"
+    kind = (
+        "SWAP" if symbol.endswith("-SWAP")
+        else "SPOT"
+    )
 
     instruments = get_json(
         "https://www.okx.com/api/v5/public/instruments",
@@ -244,16 +251,75 @@ def okx(symbol, tf, now):
         if row[8] == "1"
     ]
 
-    data = pd.DataFrame(rows).iloc[:, :6]
-    data.columns = ["t", "o", "h", "l", "c", "v"]
+    d = pd.DataFrame(rows).iloc[:, :6]
+    d.columns = ["t", "o", "h", "l", "c", "v"]
 
-    data.index = pd.to_datetime(
-        data.pop("t").astype("int64"),
+    d.index = pd.to_datetime(
+        d.pop("t").astype("int64"),
         unit="ms",
         utc=True,
     )
 
-    return clean(data, tf, now)
+    return clean(d, tf, now)
+
+
+def twelve_payload(payload, tf, now):
+    if not payload.get("values"):
+        raise ValueError(
+            "Twelve Data unavailable: "
+            + str(payload.get("code", "no values"))
+        )
+
+    d = pd.DataFrame(payload["values"])
+
+    index = pd.DatetimeIndex(
+        pd.to_datetime(d.pop("datetime"))
+    )
+
+    zone = (
+        payload.get("meta", {}).get(
+            "exchange_timezone", "UTC"
+        )
+        if tf == "1d"
+        else "UTC"
+    )
+
+    if index.tz is None:
+        index = index.tz_localize(
+            zone,
+            ambiguous="raise",
+            nonexistent="raise",
+        )
+
+    d.index = index.tz_convert("UTC")
+
+    d = d.rename(columns={
+        "open": "o",
+        "high": "h",
+        "low": "l",
+        "close": "c",
+        "volume": "v",
+    })
+
+    if "v" not in d:
+        d["v"] = 0.0
+
+    from gold_volume import distinct
+    d = distinct(d[["o", "h", "l", "c", "v"]])
+
+    ends = None
+
+    if tf == "1d":
+        local = d.index.tz_convert(zone)
+
+        ends = pd.Series(
+            (
+                local + pd.DateOffset(days=1)
+            ).tz_convert("UTC"),
+            index=d.index,
+        )
+
+    return clean(d, tf, now, ends)
 
 
 def twelve(symbol, tf, now):
@@ -280,36 +346,10 @@ def twelve(symbol, tf, now):
         },
     )
 
-    if not payload.get("values"):
-        raise ValueError(
-            "Twelve Data unavailable: "
-            + str(payload.get("code", "no values"))
-        )
-
-    data = pd.DataFrame(payload["values"])
-    data.index = pd.to_datetime(
-        data.pop("datetime"), utc=True
-    )
-
-    data = data.rename(columns={
-        "open": "o",
-        "high": "h",
-        "low": "l",
-        "close": "c",
-        "volume": "v",
-    })
-
-    if "v" not in data:
-        data["v"] = 0.0
-
-    return clean(
-        data[["o", "h", "l", "c", "v"]],
-        tf,
-        now,
-    )
+    return twelve_payload(payload, tf, now)
 
 
-def yahoo(symbol, tf, now):
+def yahoo(symbol, tf, now, start=None):
     import yfinance as yf
 
     interval = (
@@ -328,22 +368,33 @@ def yahoo(symbol, tf, now):
         else ("2y" if tf == "1d" else "6mo")
     )
 
-    data = yf.download(
+    params = {"period": period}
+
+    if start is not None and tf == "15m":
+        params = {
+            "start": max(
+                pd.Timestamp(start),
+                now - pd.Timedelta(days=58),
+            ).to_pydatetime(),
+            "end": now.to_pydatetime(),
+        }
+
+    d = yf.download(
         symbol,
-        period=period,
         interval=interval,
         progress=False,
         auto_adjust=False,
         threads=False,
+        **params,
     )
 
-    if data.empty:
+    if d.empty:
         raise ValueError("Yahoo empty response")
 
-    if isinstance(data.columns, pd.MultiIndex):
-        data.columns = data.columns.get_level_values(0)
+    if isinstance(d.columns, pd.MultiIndex):
+        d.columns = d.columns.get_level_values(0)
 
-    data = data.rename(columns={
+    d = d.rename(columns={
         "Open": "o",
         "High": "h",
         "Low": "l",
@@ -351,28 +402,26 @@ def yahoo(symbol, tf, now):
         "Volume": "v",
     })
 
-    data = data[["o", "h", "l", "c", "v"]].copy()
-    data.index = pd.to_datetime(data.index, utc=True)
+    d = d[["o", "h", "l", "c", "v"]].copy()
+    d.index = pd.to_datetime(d.index, utc=True)
 
     if symbol == "^NDX" and tf != "1d":
         import pandas_market_calendars as mcal
 
-        schedule = mcal.get_calendar(
-            "NASDAQ"
-        ).schedule(
-            start_date=data.index.min().date(),
+        schedule = mcal.get_calendar("NASDAQ").schedule(
+            start_date=d.index.min().date(),
             end_date=now.date(),
         )
 
         pieces = []
 
-        for _, session in schedule.iterrows():
-            opened = session["market_open"]
-            closed = session["market_close"]
+        for _, row in schedule.iterrows():
+            opened = row["market_open"]
+            closed = row["market_close"]
 
-            part = data[
-                (data.index >= opened)
-                & (data.index < closed)
+            part = d[
+                (d.index >= opened)
+                & (d.index < closed)
             ].copy()
 
             if part.empty:
@@ -399,7 +448,8 @@ def yahoo(symbol, tf, now):
 
             if tf == "4h":
                 part = part[
-                    (part["end"] - part.index) == DUR["1h"]
+                    (part["end"] - part.index)
+                    == DUR["1h"]
                 ]
 
                 part["bucket"] = (
@@ -433,13 +483,10 @@ def yahoo(symbol, tf, now):
                 "no completed regular-session candles"
             )
 
-        data = pd.concat(pieces).sort_index()
+        d = pd.concat(pieces).sort_index()
+        return clean(d, tf, now, d["end"])
 
-        return clean(
-            data, tf, now, data["end"]
-        )
-
-    return clean(data, tf, now)
+    return clean(d, tf, now)
 
 
 def specs(key):
@@ -450,14 +497,17 @@ def specs(key):
         provider = os.environ.get(
             "GOLD_PROVIDER", "twelve"
         )
+
         symbol = os.environ.get(
             "GOLD_SYMBOL",
             "XAU/USD" if provider == "twelve" else "",
         )
+
     else:
         provider = os.environ.get(
             "NDX_PROVIDER", "yahoo"
         )
+
         symbol = os.environ.get(
             "NDX_SYMBOL",
             "^NDX" if provider == "yahoo" else "",
@@ -493,7 +543,7 @@ def frames(key, now):
 
         try:
             output[tf] = getter(symbol, tf, now)
-            data = output[tf]
+            d = output[tf]
 
             LOG.info(
                 "SOURCE asset=%s provider=%s symbol=%s "
@@ -503,14 +553,14 @@ def frames(key, now):
                 provider,
                 symbol,
                 tf,
-                len(data),
-                data["end"].iloc[-1].isoformat(),
+                len(d),
+                d["end"].iloc[-1].isoformat(),
                 (
-                    now - data["end"].iloc[-1]
+                    now - d["end"].iloc[-1]
                 ).total_seconds(),
                 (
                     "present"
-                    if data["v"].sum() > 0
+                    if d["v"].sum() > 0
                     else "unavailable"
                 ),
             )
@@ -528,6 +578,7 @@ def frames(key, now):
                 safe_error(exc),
             )
 
+    output["_decision_at"] = now
     output["_source"] = provider + ":" + symbol
     output["_provider"] = provider
     output["_symbol"] = symbol
@@ -563,12 +614,12 @@ def freshness(fr, key, now):
             ):
                 return False, f"{tf}: stale"
 
-            differences = (
+            gaps = (
                 fr[tf].tail(60).index.to_series()
                 .diff().dropna()
             )
 
-            if (differences != DUR[tf]).any():
+            if (gaps != DUR[tf]).any():
                 return False, f"{tf}: missing candle(s)"
 
     else:
