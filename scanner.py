@@ -12,7 +12,6 @@ import requests
 import scanner_data as md
 import news
 
-
 LOG = logging.getLogger(__name__)
 VERSION = "paper-v2"
 
@@ -40,7 +39,9 @@ def event(st, text, identity=None):
     units = 0
 
     for character in text:
-        size = len(character.encode("utf-16-le")) // 2
+        size = len(
+            character.encode("utf-16-le")
+        ) // 2
 
         if units + size > 3500:
             chunks.append(buffer)
@@ -77,6 +78,7 @@ def flush(st, save, token, chat):
                 },
                 timeout=(8, 25),
             )
+
             body = response.json()
 
         except Exception:
@@ -142,7 +144,9 @@ def close_trade(st, sp, exit_price, label, when):
         dict(sp, hits=list(sp["hits"]))
     )
 
-    st["cool"][sp["key"]] = stamp(when).isoformat()
+    st["cool"][sp["key"]] = stamp(
+        when
+    ).isoformat()
 
     ambiguity = (
         "\nترتيب الحركة داخل شمعة ملتبس؛ "
@@ -169,7 +173,9 @@ def make_setup(st, res, fr, now):
     targets = list(map(float, plan["tps"]))
 
     if len(targets) != 3:
-        raise ValueError("exactly three targets required")
+        raise ValueError(
+            "exactly three targets required"
+        )
 
     if not all(
         math.isfinite(value)
@@ -277,9 +283,9 @@ def manage(st, sp, fr, now, agent):
         )
         return
 
-    data = fr["15m"]
+    d = fr["15m"]
     first = stamp(sp.get("not_before", sp["t0"]))
-    rows = data[data.index >= first]
+    rows = d[d.index >= first]
 
     if sp.get("seen"):
         rows = rows[
@@ -334,6 +340,8 @@ def manage(st, sp, fr, now, agent):
                 )
                 return
 
+            entry_mode = "NEXT_OPEN"
+
             if sp["state"] == "ARMED":
                 if (opening - sp["stop"]) * side <= 0:
                     sp["state"] = "INVALIDATED"
@@ -351,6 +359,7 @@ def manage(st, sp, fr, now, agent):
 
                 elif low <= sp["entry"] <= high:
                     entry = sp["entry"]
+                    entry_mode = "LIMIT_INTRABAR"
 
                 else:
                     sp["seen"] = timestamp.isoformat()
@@ -395,6 +404,7 @@ def manage(st, sp, fr, now, agent):
                 entry=entry,
                 state="ENTERED",
                 t0=timestamp.isoformat(),
+                entry_mode=entry_mode,
             )
 
             if cost_r(sp) > 0.35:
@@ -458,7 +468,7 @@ def manage(st, sp, fr, now, agent):
             )
 
             if (
-                sp.get("ambiguous")
+                sp.get("entry_mode") == "LIMIT_INTRABAR"
                 and timestamp == stamp(sp["t0"])
             ):
                 exit_price = sp["stop"]
@@ -742,25 +752,17 @@ def run(agent, now=None):
         os.environ.get("GEMINI_KEY", ""),
     )
 
-    for key, frames in data.items():
-        fresh, reason = md.freshness(
-            frames, key, now
-        )
+    for key, fr in data.items():
+        fresh, reason = md.freshness(fr, key, now)
 
         last_close = stamp(
-            frames["15m"]["end"].iloc[-1]
+            fr["15m"]["end"].iloc[-1]
         )
 
         position = st["active"].get(key)
 
         if position:
-            manage(
-                st,
-                position,
-                frames,
-                now,
-                agent,
-            )
+            manage(st, position, fr, now, agent)
 
             if position["state"] in (
                 "CLOSED", "INVALIDATED", "EXPIRED"
@@ -791,11 +793,11 @@ def run(agent, now=None):
             summary.append(f"{key}: cooldown")
             continue
 
-        previous_analysis = st.setdefault(
+        previous = st.setdefault(
             "last_analysis", {}
         ).get(key)
 
-        if previous_analysis == last_close.isoformat():
+        if previous == last_close.isoformat():
             summary.append(
                 f"{key}: no new closed candle"
             )
@@ -803,17 +805,13 @@ def run(agent, now=None):
 
         try:
             result = agent.analyze(
-                key,
-                frames,
-                btc_direction,
+                key, fr, btc_direction
             )
 
             result = news.apply(
-                result,
-                news_context,
+                result, news_context
             )
 
-            # تفاصيل الذهب لتشخيص شروط الإعداد الناقصة.
             if key == "GOLD":
                 LOG.info(
                     "GOLD_DETAILS observations=%s missing=%s",
@@ -843,10 +841,7 @@ def run(agent, now=None):
 
             if result["tier"] in ("A", "ARMED"):
                 position = make_setup(
-                    st,
-                    result,
-                    frames,
-                    now,
+                    st, result, fr, now
                 )
 
                 if (
@@ -868,17 +863,13 @@ def run(agent, now=None):
                     continue
 
                 st["active"][key] = position
-
                 st["watch"].pop(key, None)
                 st["watch"].pop(key + ":E", None)
 
                 event(
                     st,
                     setup_text(
-                        result,
-                        position,
-                        frames,
-                        agent,
+                        result, position, fr, agent
                     ),
                     position["id"] + ":setup",
                 )
@@ -925,8 +916,7 @@ def run(agent, now=None):
                     )
 
                     text += (
-                        "\nالمصدر: "
-                        + frames["_source"]
+                        "\nالمصدر: " + fr["_source"]
                         + "\nوقت الإغلاق: "
                         + last_close.isoformat()
                     )
@@ -956,11 +946,7 @@ def run(agent, now=None):
                 "لم تُصدر إشارة جديدة.",
             )
 
-    for text in news.alerts(
-        news_context,
-        st,
-        now,
-    ):
+    for text in news.alerts(news_context, st, now):
         event(st, text)
 
     weekly(st, now)
