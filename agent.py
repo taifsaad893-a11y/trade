@@ -64,20 +64,96 @@ def bin_klines(sym, tf, n=300):
     raise RuntimeError("binance failed " + sym)
 
 
+_OKX_ID = {}
+
+
+def okx_resolve(inst):
+    # يتأكد إن رمز OKX موجود، وإذا لا يجرب بدائل ويدور بقائمة العقود
+    if inst in _OKX_ID:
+        return _OKX_ID[inst]
+    base = inst.split("-")[0]
+    tried = [inst]
+    for alt in (inst + "-SWAP", inst.replace("-SWAP", "")):
+        if alt not in tried:
+            tried.append(alt)
+    for cand in tried:
+        try:
+            r = requests.get(
+                "https://www.okx.com/api/v5/market/candles",
+                params={"instId": cand, "bar": "1H", "limit": 3},
+                timeout=20)
+            j = r.json()
+            if j.get("code") == "0" and j.get("data"):
+                _OKX_ID[inst] = cand
+                if cand != inst:
+                    print("okx instrument", inst, "->", cand)
+                return cand
+            print("okx probe", cand, "->", str(j.get("code")),
+                  str(j.get("msg"))[:60])
+        except Exception as e:
+            print("okx probe error:", cand, e)
+    try:
+        r = requests.get(
+            "https://www.okx.com/api/v5/public/instruments",
+            params={"instType": "SWAP"}, timeout=30)
+        ids = [x["instId"] for x in r.json().get("data", [])]
+        m = [i for i in ids if i.startswith(base)
+             and i.endswith("-USDT-SWAP")]
+        print("okx instruments matching", base, ":", m[:8])
+        if m:
+            _OKX_ID[inst] = m[0]
+            return m[0]
+    except Exception as e:
+        print("okx discovery error:", e)
+    _OKX_ID[inst] = inst
+    return inst
+
+
 def okx_klines(inst, tf, n=300):
+    inst = okx_resolve(inst)
     r = requests.get(
         "https://www.okx.com/api/v5/market/candles",
         params={"instId": inst, "bar": OKX_BARS[tf], "limit": n},
         timeout=20)
     j = r.json()
     if j.get("code") != "0" or not j.get("data"):
-        raise RuntimeError("okx: " + str(j)[:150])
+        raise RuntimeError(f"okx {inst}: " + str(j)[:150])
     rows = [x for x in j["data"] if x[8] == "1"]
     d = pd.DataFrame(rows).iloc[:, :6]
     d.columns = ["t", "o", "h", "l", "c", "v"]
     d = d.astype(float)
     d.index = pd.to_datetime(d["t"], unit="ms", utc=True)
     return d.drop(columns="t").sort_index()
+
+
+_OKX_ALT = {}
+
+
+def okx_find(sym):
+    # يدور على اسم العقد الصحيح بقائمة OKX إذا الاسم المكتوب مو موجود
+    if sym in _OKX_ALT:
+        return _OKX_ALT[sym]
+    base = sym.split("-")[0]
+    order = ("SWAP", "SPOT") if sym.endswith("SWAP") else ("SPOT", "SWAP")
+    found = []
+    for typ in order:
+        try:
+            r = requests.get(
+                "https://www.okx.com/api/v5/public/instruments",
+                params={"instType": typ}, timeout=20)
+            for x in r.json().get("data", []):
+                iid = x.get("instId", "")
+                if iid.split("-")[0] == base and iid != sym:
+                    found.append(iid)
+        except Exception as e:
+            print("okx list failed", typ, ":", e)
+        if found:
+            break
+    found.sort(key=lambda i: ("USDT" not in i, i))
+    _OKX_ALT[sym] = found[0] if found else None
+    if found:
+        print("okx candidates for", base, ":", found[:5])
+    return _OKX_ALT[sym]
 
 
 def td_frame(sym, tf, n=300):
@@ -132,14 +208,27 @@ def frames(kind, sym):
     if kind == "bin":
         return {tf: bin_klines(sym, tf) for tf in ("15m", "1h", "4h")}
     if kind == "okx":
+        fr = None
+        use = sym
         try:
-            fr = {tf: okx_klines(sym, tf) for tf in ("15m", "1h", "4h")}
+            fr = {tf: okx_klines(use, tf) for tf in ("15m", "1h", "4h")}
         except Exception as e:
-            print("okx failed, trying fallback:", e)
+            print("okx failed", sym, ":", e)
+            alt = okx_find(sym)
+            if alt:
+                try:
+                    use = alt
+                    fr = {tf: okx_klines(use, tf)
+                          for tf in ("15m", "1h", "4h")}
+                    print("okx using alternative:", alt)
+                except Exception as e2:
+                    print("okx alt failed", alt, ":", e2)
+                    fr = None
+        if fr is None:
             if sym.startswith("XAU"):
                 return frames("td", "XAU/USD")
             return frames("yf", "^NDX")
-        return with_daily(fr, lambda: okx_klines(sym, "1d"))
+        return with_daily(fr, lambda: okx_klines(use, "1d"))
     if kind == "td":
         fr = {tf: td_frame(sym, tf) for tf in ("15m", "1h", "4h")}
         return with_daily(fr, lambda: td_frame(sym, "1d"))
