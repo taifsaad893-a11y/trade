@@ -1,3 +1,4 @@
+"""Patch the reviewed agent without executing its old main loop."""
 import ast
 from pathlib import Path
 
@@ -14,26 +15,19 @@ def patch_source(source):
     }
 
     required = {
-        "analyze_core", "analyze", "gold_vp",
-        "zone_strat", "sr_multi", "atr",
-        "trend", "load", "save",
+        "analyze_core", "analyze", "gold_vp", "zone_strat",
+        "sr_multi", "atr", "trend", "load", "save",
     }
 
     if not required <= functions.keys():
         raise RuntimeError(
             "agent.py differs from reviewed version: missing "
-            + ", ".join(sorted(
-                required - functions.keys()
-            ))
+            + ", ".join(sorted(required - functions.keys()))
         )
 
     def edit(name, replacements):
         node = functions[name]
-
-        old = "".join(
-            lines[node.lineno - 1:node.end_lineno]
-        )
-
+        old = "".join(lines[node.lineno - 1:node.end_lineno])
         new = old
 
         for before, after in replacements:
@@ -42,18 +36,16 @@ def patch_source(source):
 
             if new.count(before) != 1:
                 raise RuntimeError(
-                    f"{name}: expected exactly one reviewed "
-                    "block; no file changed"
+                    f"{name}: expected exactly one reviewed block; "
+                    "no file changed"
                 )
 
             new = new.replace(before, after, 1)
 
         if new != old:
-            changes.append((
-                node.lineno - 1,
-                node.end_lineno,
-                new,
-            ))
+            changes.append(
+                (node.lineno - 1, node.end_lineno, new)
+            )
 
     edit("analyze_core", [
         (
@@ -63,16 +55,16 @@ def patch_source(source):
         (
             'if style and pl and sc >= A_MIN and pl["rr"] >= 2:',
             'if style and pl and sc >= A_MIN and pl["rr"] >= 2 '
-            "and not (brk and ext > 0.5):",
+            'and not (brk and ext > 0.5):',
         ),
     ])
 
     node = functions["analyze"]
 
     analyze_code = '''def analyze(key, fr, btc_dir):
-    if key == "GOLD" and GOLD_VP:
-        from gold_volume import analyze_gold
-        res = analyze_gold(fr, globals())
+    if key in ("GOLD", "NDX"):
+        from simple_zones import analyze_zones
+        res = analyze_zones(key, fr, globals())
     elif key in ZONE_ASSETS and ZONE_MODE:
         res = zone_strat(key, fr)
     elif key == "GOLD" and GOLD_MTF:
@@ -90,11 +82,9 @@ def patch_source(source):
     )
 
     if current != analyze_code:
-        changes.append((
-            node.lineno - 1,
-            node.end_lineno,
-            analyze_code,
-        ))
+        changes.append(
+            (node.lineno - 1, node.end_lineno, analyze_code)
+        )
 
     edit("gold_vp", [
         (
@@ -119,10 +109,8 @@ def patch_source(source):
         (
             '"منخفضة" if q >= 7 else '
             '("متوسطة" if q >= 5 else "عالية")',
-
-            '"غير مقاسة إحصائياً (جودة مرتفعة)" if q >= 7 '
-            'else ("غير مقاسة إحصائياً (جودة متوسطة)" '
-            'if q >= 5 else '
+            '"غير مقاسة إحصائياً (جودة مرتفعة)" if q >= 7 else '
+            '("غير مقاسة إحصائياً (جودة متوسطة)" if q >= 5 else '
             '"غير مقاسة إحصائياً (جودة محدودة)")',
         ),
     ])
@@ -140,9 +128,7 @@ def patch_source(source):
                 'if __name__ == "__main__":\n    main()\n',
             ))
 
-    for start, end, value in sorted(
-        changes, reverse=True
-    ):
+    for start, end, value in sorted(changes, reverse=True):
         lines[start:end] = [value]
 
     output = "".join(lines).replace(
