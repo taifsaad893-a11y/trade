@@ -479,16 +479,16 @@
    "Retail Sales m/m2026-10-15T12:30:00+00:00",
    "Fed Chairman Warsh Speaks2026-10-16T03:30:00+00:00"
   ],
-  "calendar_attempt_v2": "2026-10-20T10:40:24.981358+00:00",
-  "calendar_success_v2": "2026-10-20T10:40:24.981358+00:00"
+  "calendar_attempt_v2": "2026-10-20T17:01:55.658624+00:00",
+  "calendar_success_v2": "2026-10-20T17:01:55.658624+00:00"
  },
  "outbox": [],
  "last_analysis": {
-  "BTC": "2026-10-20T16:15:00+00:00",
+  "BTC": "2026-10-20T17:00:00+00:00",
   "SOL": "2026-10-20T14:15:00+00:00",
-  "GOLD": "2026-10-20T16:15:00+00:00",
-  "ETH": "2026-10-20T16:15:00+00:00",
-  "NDX": "2026-10-20T16:15:00+00:00"
+  "GOLD": "2026-10-20T17:00:00+00:00",
+  "ETH": "2026-10-20T17:00:00+00:00",
+  "NDX": "2026-10-20T17:00:00+00:00"
  },
  "event_ids": [
   "b8203e61-129a-4d6d-96b1-bdea07954867",
@@ -534,10 +534,10 @@
   "4e095017-db31-481f-83a3-1962b2a9264d"
  ],
  "last_decision": {
-  "BTC": "BTC: B score=6.5",
-  "ETH": "ETH: B score=6.0",
+  "BTC": "BTC: B score=9.0",
+  "ETH": "ETH: B score=7.5",
   "SOL": "SOL: ARMED score=7.7 | SOL-022",
-  "GOLD": "GOLD: SKIP_COST score=7.5 | كلفة مفترضة 0.378R > 0.350R (14 bps)",
+  "GOLD": "GOLD: NONE score=0.0",
   "NDX": "NDX: NONE score=0.0"
  }
 }
