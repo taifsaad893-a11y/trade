@@ -1,18 +1,67 @@
 name: backtest
+
 on:
   workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backtest-v3
+  cancel-in-progress: false
+
 jobs:
   bt:
     runs-on: ubuntu-latest
     timeout-minutes: 120
+
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-python@v5
-        with: { python-version: "3.12" }
-      - run: pip install yfinance pandas requests
-      - run: python backtest.py
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: python -m pip install -r requirements.txt
+
+      - name: Verify engine and profile
+        if: ${{ hashFiles('tests/test_gold_volume.py') != '' }}
+        run: python -m unittest discover -s tests -v
+
+      - name: Replay historical candles
+        run: python backtest.py
         env:
           GEMINI_KEY: ${{ secrets.GEMINI_KEY }}
           TG_TOKEN: ${{ secrets.TG_TOKEN }}
           TG_CHAT: ${{ secrets.TG_CHAT }}
           TWELVE_KEY: ${{ secrets.TWELVE_KEY }}
+
+          GOLD_PROVIDER: twelve
+          GOLD_SYMBOL: XAU/USD
+
+          NDX_PROVIDER: yahoo
+          NDX_SYMBOL: ^NDX
+
+          GOLD_VOLUME_MODE: confirm
+          GC_SYMBOL: GC=F
+          GC_DELAY_MINUTES: "20"
+
+          ROUNDTRIP_COST_BPS: "14"
+
+          BT_DAYS: "90"
+          BT_STEP: "1"
+          BT_SCAN_DELAY_SECONDS: "120"
+
+          COMPARE_ICT: "false"
+          BT_SEND_TELEGRAM: "true"
+
+      - name: Full report and data coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backtest-results-${{ github.run_id }}
+          path: backtest_results/
+          if-no-files-found: warn
+          retention-days: 14
