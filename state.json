@@ -8,21 +8,33 @@
   },
   "BTC": {
    "side": 1,
-   "ts": "2026-10-21T08:18:04.878446+00:00",
-   "fingerprint": "b4aab2117739",
+   "ts": "2026-10-21T14:50:38.900523+00:00",
+   "fingerprint": "3aa1a2a22e3f",
    "zone_p": null
   },
   "GOLD": {
-   "side": 1,
-   "ts": "2026-10-21T14:17:17.491184+00:00",
-   "fingerprint": "ce10b2d5e29e",
-   "zone_p": 4126.220736923077
+   "side": -1,
+   "ts": "2026-10-21T14:50:38.900523+00:00",
+   "fingerprint": "4ac35ca0db4f",
+   "zone_p": 4131.677483333334
   },
   "SOL": {
    "side": 1,
    "ts": "2026-10-21T11:15:10.091770+00:00",
    "fingerprint": "b4aab2117739",
    "zone_p": null
+  },
+  "ETH": {
+   "side": 1,
+   "ts": "2026-10-21T14:50:38.900523+00:00",
+   "fingerprint": "b4aab2117739",
+   "zone_p": null
+  },
+  "NDX": {
+   "side": 1,
+   "ts": "2026-10-21T14:50:38.900523+00:00",
+   "fingerprint": "413b504e65ac",
+   "zone_p": 29674.69296875
   }
  },
  "cool": {
@@ -492,10 +504,11 @@
  },
  "outbox": [],
  "last_analysis": {
-  "BTC": "2026-10-21T14:15:00+00:00",
-  "SOL": "2026-10-21T14:15:00+00:00",
-  "ETH": "2026-10-21T14:15:00+00:00",
-  "GOLD": "2026-10-21T14:15:00+00:00"
+  "BTC": "2026-10-21T14:45:00+00:00",
+  "SOL": "2026-10-21T14:45:00+00:00",
+  "ETH": "2026-10-21T14:45:00+00:00",
+  "GOLD": "2026-10-21T14:45:00+00:00",
+  "NDX": "2026-10-21T14:45:00+00:00"
  },
  "event_ids": [
   "b8203e61-129a-4d6d-96b1-bdea07954867",
@@ -573,20 +586,25 @@
   "996a576a-9473-420d-bb6f-974adb000448",
   "325ca4da-bcca-487b-95cc-8e6e497089a1",
   "b653f352-d2f4-4e95-9ffc-486078ad2009",
-  "f0ede320-a7ab-4612-977b-7b1084d39a9a"
+  "f0ede320-a7ab-4612-977b-7b1084d39a9a",
+  "882c81cd-6dd1-4b54-bd36-e3df9ea3b8bd",
+  "ad173757-c86c-4753-8647-3e6d50205121",
+  "43ed98fa-d6c4-408d-8797-496a7f200343",
+  "98b67ee4-08ea-44cb-8dd6-c7105eb7882b"
  ],
  "last_decision": {
-  "BTC": "BTC: B score=8.3",
-  "ETH": "ETH: NONE score=4.5",
-  "SOL": "SOL: NONE score=5.5",
-  "GOLD": "GOLD: B score=5.0",
-  "NDX": "NDX: NONE score=0.0"
+  "BTC": "BTC: B score=10.0",
+  "ETH": "ETH: B score=6.5",
+  "SOL": "SOL: B score=6.0",
+  "GOLD": "GOLD: B score=2.5",
+  "NDX": "NDX: B score=5.0"
  },
  "strategy_versions": {
   "GOLD": "simple_zones_v1",
   "NDX": "simple_zones_v1"
  },
  "waiting_status_ts": {
-  "GOLD": "2026-10-21T14:17:17.491184+00:00"
+  "GOLD": "2026-10-21T14:50:38.900523+00:00",
+  "NDX": "2026-10-21T14:50:38.900523+00:00"
  }
 }
