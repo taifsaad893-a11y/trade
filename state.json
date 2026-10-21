@@ -8,8 +8,8 @@
   },
   "BTC": {
    "side": 1,
-   "ts": "2026-10-21T07:35:16.928192+00:00",
-   "fingerprint": "3aa1a2a22e3f",
+   "ts": "2026-10-21T08:18:04.878446+00:00",
+   "fingerprint": "b4aab2117739",
    "zone_p": null
   },
   "GOLD": {
@@ -26,8 +26,8 @@
   },
   "SOL": {
    "side": 1,
-   "ts": "2026-10-21T07:35:16.928192+00:00",
-   "fingerprint": "3aa1a2a22e3f",
+   "ts": "2026-10-21T08:18:04.878446+00:00",
+   "fingerprint": "b4aab2117739",
    "zone_p": null
   }
  },
@@ -498,10 +498,10 @@
  },
  "outbox": [],
  "last_analysis": {
-  "BTC": "2026-10-21T07:30:00+00:00",
-  "SOL": "2026-10-21T07:30:00+00:00",
-  "ETH": "2026-10-21T07:30:00+00:00",
-  "GOLD": "2026-10-21T07:30:00+00:00"
+  "BTC": "2026-10-21T08:15:00+00:00",
+  "SOL": "2026-10-21T08:15:00+00:00",
+  "ETH": "2026-10-21T08:15:00+00:00",
+  "GOLD": "2026-10-21T08:15:00+00:00"
  },
  "event_ids": [
   "b8203e61-129a-4d6d-96b1-bdea07954867",
@@ -567,13 +567,15 @@
   "4e438836-4b31-404b-8c95-05b4aa9bec4a",
   "ef877206-7e07-465f-b8ad-40107e9aaf84",
   "3498edc2-3dff-4ae3-992a-ece5e35e1b81",
-  "bb16c193-e43a-419e-b9dd-c588ff6813ee"
+  "bb16c193-e43a-419e-b9dd-c588ff6813ee",
+  "696e7014-b62d-417a-a295-512d33db8f53",
+  "5763a11a-bcf6-409b-ae63-2bfc75b17c82"
  ],
  "last_decision": {
-  "BTC": "BTC: B score=10.0",
-  "ETH": "ETH: B score=8.5",
-  "SOL": "SOL: B score=10.0",
-  "GOLD": "GOLD: B score=5.0",
+  "BTC": "BTC: B score=8.0",
+  "ETH": "ETH: B score=8.0",
+  "SOL": "SOL: B score=7.8",
+  "GOLD": "GOLD: B score=2.5",
   "NDX": "NDX: NONE score=0.0"
  },
  "strategy_versions": {
