@@ -19,7 +19,11 @@ VERSION = "paper-v2"
 
 def stamp(value):
     t = pd.Timestamp(value)
-    return t.tz_localize("UTC") if t.tzinfo is None else t.tz_convert("UTC")
+    return (
+        t.tz_localize("UTC")
+        if t.tzinfo is None
+        else t.tz_convert("UTC")
+    )
 
 
 def event(st, text, identity=None):
@@ -63,7 +67,10 @@ def flush(st, save, token, chat):
         try:
             response = requests.post(
                 f"https://api.telegram.org/bot{token}/sendMessage",
-                json={"chat_id": chat, "text": item["text"]},
+                json={
+                    "chat_id": chat,
+                    "text": item["text"],
+                },
                 timeout=(8, 25),
             )
             body = response.json()
@@ -90,7 +97,8 @@ def flush(st, save, token, chat):
 
 def cost_r(sp):
     return (
-        sp["entry"] * sp.get("cost_bps", 0.0)
+        sp["entry"]
+        * sp.get("cost_bps", 0.0)
         / 10000
         / abs(sp["entry"] - sp["stop0"])
     )
@@ -106,7 +114,10 @@ def close_trade(st, sp, exit_price, label, when):
         if sp["hits"][i]
     )
     left = (3 - sum(sp["hits"])) / 3
-    gross = done + left * (exit_price - sp["entry"]) * side / risk
+    gross = (
+        done
+        + left * (exit_price - sp["entry"]) * side / risk
+    )
 
     sp.update(
         state="CLOSED",
@@ -117,7 +128,9 @@ def close_trade(st, sp, exit_price, label, when):
         exit_price=exit_price,
     )
 
-    st["closed"].append(dict(sp, hits=list(sp["hits"])))
+    st["closed"].append(
+        dict(sp, hits=list(sp["hits"]))
+    )
     st["cool"][sp["key"]] = stamp(when).isoformat()
 
     text = (
@@ -142,7 +155,9 @@ def assumed_cost_bps(key):
     ))
 
     if not math.isfinite(value) or value < 0:
-        raise ValueError("invalid cost assumption for " + key)
+        raise ValueError(
+            "invalid cost assumption for " + key
+        )
 
     return value
 
@@ -159,8 +174,8 @@ def decision_text(key, res, sp=None):
             )
 
         return (
-            f"{key}: {sp['state']} score={res['score']} | "
-            f"{sp['id']}"
+            f"{key}: {sp['state']} "
+            f"score={res['score']} | {sp['id']}"
         )
 
     return (
@@ -177,7 +192,9 @@ def make_setup(st, res, fr, now):
     targets = list(map(float, plan["tps"]))
 
     if len(targets) != 3:
-        raise ValueError("exactly three targets required")
+        raise ValueError(
+            "exactly three targets required"
+        )
 
     if not all(
         math.isfinite(x)
@@ -187,7 +204,10 @@ def make_setup(st, res, fr, now):
 
     if (
         (entry - stop) * side <= 0
-        or not all((x - entry) * side > 0 for x in targets)
+        or not all(
+            (x - entry) * side > 0
+            for x in targets
+        )
     ):
         raise ValueError("invalid plan geometry")
 
@@ -212,9 +232,14 @@ def make_setup(st, res, fr, now):
         "tps": targets,
         "hits": [False] * 3,
         "score": res["score"],
-        "rr": abs(targets[1] - entry) / abs(entry - stop),
+        "rr": (
+            abs(targets[1] - entry)
+            / abs(entry - stop)
+        ),
         "state": (
-            "ARMED" if res["tier"] == "ARMED" else "PENDING"
+            "ARMED"
+            if res["tier"] == "ARMED"
+            else "PENDING"
         ),
         "t_decl": now.isoformat(),
         "t0": now.isoformat(),
@@ -260,9 +285,10 @@ def manage(st, sp, fr, now, a):
         else:
             event(
                 st,
-                f"⚠️ {sp['id']}: مصدر الصفقة القديمة غير مسجل؛ "
-                "توقفت متابعة هذه الصفقة لحين تحديد مصدرها. "
-                "السجل محفوظ، ولا تُفتح صفقة أخرى على نفس الأصل.",
+                f"⚠️ {sp['id']}: مصدر الصفقة القديمة "
+                "غير مسجل؛ توقفت متابعة هذه الصفقة "
+                "لحين تحديد مصدرها. السجل محفوظ، "
+                "ولا تُفتح صفقة أخرى على نفس الأصل.",
                 sp["id"] + ":source-unknown",
             )
             return
@@ -270,23 +296,28 @@ def manage(st, sp, fr, now, a):
     if sp["source"] != fr["_source"]:
         event(
             st,
-            f"⚠️ {sp['id']}: المصدر تغيّر من {sp['source']} "
-            f"إلى {fr['_source']}؛ "
+            f"⚠️ {sp['id']}: المصدر تغيّر من "
+            f"{sp['source']} إلى {fr['_source']}؛ "
             "المتابعة معلقة بدون احتساب نتيجة.",
             sp["id"] + ":source-change:" + fr["_source"],
         )
         return
 
     d = fr["15m"]
-    first = stamp(sp.get("not_before", sp["t0"]))
+    first = stamp(
+        sp.get("not_before", sp["t0"])
+    )
     rows = d[d.index >= first]
 
     if sp.get("seen"):
-        rows = rows[rows.index > stamp(sp["seen"])]
+        rows = rows[
+            rows.index > stamp(sp["seen"])
+        ]
 
     expected = (
         stamp(sp["seen"]) + pd.Timedelta(minutes=15)
-        if sp.get("seen") else first
+        if sp.get("seen")
+        else first
     )
 
     if key in ("BTC", "ETH", "SOL") and not rows.empty:
@@ -296,13 +327,16 @@ def manage(st, sp, fr, now, a):
             indexes[0] > expected
             or any(
                 right - left != pd.Timedelta(minutes=15)
-                for left, right in zip(indexes, indexes[1:])
+                for left, right in zip(
+                    indexes, indexes[1:]
+                )
             )
         ):
             event(
                 st,
                 f"⚠️ {sp['id']}: فجوة ببيانات التتبع؛ "
-                "النتيجة معلقة لحين استرجاع الشموع المفقودة.",
+                "النتيجة معلقة لحين استرجاع "
+                "الشموع المفقودة.",
                 sp["id"] + ":gap",
             )
             return
@@ -318,7 +352,8 @@ def manage(st, sp, fr, now, a):
                 sp["state"] = "EXPIRED"
                 event(
                     st,
-                    f"⌛ {sp['id']}: انتهت صلاحية الإعداد بدون دخول.",
+                    f"⌛ {sp['id']}: انتهت صلاحية "
+                    "الإعداد بدون دخول.",
                     sp["id"] + ":expired",
                 )
                 return
@@ -330,7 +365,8 @@ def manage(st, sp, fr, now, a):
                     sp["state"] = "INVALIDATED"
                     event(
                         st,
-                        f"❌ {sp['id']}: افتتاح تجاوز الإلغاء قبل الدخول.",
+                        f"❌ {sp['id']}: افتتاح تجاوز "
+                        "الإلغاء قبل الدخول.",
                         sp["id"] + ":invalid",
                     )
                     return
@@ -344,7 +380,9 @@ def manage(st, sp, fr, now, a):
                     sp["seen"] = ts.isoformat()
                     continue
 
-                sp["ambiguous"] = low <= sp["stop"] <= high
+                sp["ambiguous"] = (
+                    low <= sp["stop"] <= high
+                )
 
             else:
                 entry = opening
@@ -358,15 +396,18 @@ def manage(st, sp, fr, now, a):
                     or (entry - sp["stop0"]) * side <= 0
                     or (sp["tps"][0] - entry) * side <= 0
                     or (
-                        (sp["tps"][1] - entry) * side
-                        / abs(entry - sp["stop0"]) < 2
+                        (sp["tps"][1] - entry)
+                        * side
+                        / abs(entry - sp["stop0"])
+                        < 2
                     )
                 ):
                     sp["state"] = "INVALIDATED"
                     event(
                         st,
-                        f"❌ {sp['id']}: أُلغي قبل الدخول بسبب تغيّر "
-                        "سعر الافتتاح أو ضعف R:R.",
+                        f"❌ {sp['id']}: أُلغي قبل الدخول "
+                        "بسبب تغيّر سعر الافتتاح "
+                        "أو ضعف R:R.",
                         sp["id"] + ":invalid",
                     )
                     return
@@ -382,8 +423,9 @@ def manage(st, sp, fr, now, a):
                 sp["state"] = "INVALIDATED"
                 event(
                     st,
-                    f"❌ {sp['id']}: كلفة التنفيذ المفترضة كبيرة "
-                    "مقارنة بالوقف؛ لم تُفتح الصفقة.",
+                    f"❌ {sp['id']}: كلفة التنفيذ "
+                    "المفترضة كبيرة مقارنة بالوقف؛ "
+                    "لم تُفتح الصفقة.",
                     sp["id"] + ":invalid",
                 )
                 return
@@ -396,7 +438,8 @@ def manage(st, sp, fr, now, a):
             event(
                 st,
                 f"📍 {sp['id']} | دخول ورقي مؤكّد بالتتبع\n"
-                f"دخول {a.fmt(entry)} | وقف {a.fmt(sp['stop'])}\n"
+                f"دخول {a.fmt(entry)} | "
+                f"وقف {a.fmt(sp['stop'])}\n"
                 f"TP1 {a.fmt(sp['tps'][0])} | "
                 f"TP2 {a.fmt(sp['tps'][1])} | "
                 f"TP3 {a.fmt(sp['tps'][2])}\n"
@@ -411,10 +454,12 @@ def manage(st, sp, fr, now, a):
             if side == 1
             else high >= sp["stop"]
         )
+
         next_targets = [
             i for i in range(3)
             if not sp["hits"][i]
         ]
+
         any_target = any(
             high >= sp["tps"][i]
             if side == 1
@@ -424,6 +469,7 @@ def manage(st, sp, fr, now, a):
 
         if stop_hit:
             sp["ambiguous"] |= any_target
+
             exit_price = (
                 min(opening, sp["stop"])
                 if side == 1
@@ -436,7 +482,9 @@ def manage(st, sp, fr, now, a):
             ):
                 exit_price = sp["stop"]
 
-            close_trade(st, sp, exit_price, "STOP", end)
+            close_trade(
+                st, sp, exit_price, "STOP", end
+            )
             return
 
         for i in next_targets:
@@ -453,17 +501,21 @@ def manage(st, sp, fr, now, a):
 
             event(
                 st,
-                f"🎯 {sp['id']} | TP{i + 1} تحقق "
-                f"@ {a.fmt(sp['tps'][i])}",
+                f"🎯 {sp['id']} | TP{i + 1} "
+                f"تحقق @ {a.fmt(sp['tps'][i])}",
                 sp["id"] + f":tp{i + 1}",
             )
 
             if i == 2:
-                close_trade(st, sp, sp["tps"][2], "TP3", end)
+                close_trade(
+                    st, sp, sp["tps"][2], "TP3", end
+                )
                 return
 
             sp["stop"] = (
-                sp["entry"] if i == 0 else sp["tps"][0]
+                sp["entry"]
+                if i == 0
+                else sp["tps"][0]
             )
 
             event(
@@ -498,9 +550,16 @@ def manage(st, sp, fr, now, a):
 
         hours *= 2 if sp["hits"][0] else 1
 
-        if end - stamp(sp["t0"]) >= pd.Timedelta(hours=hours):
+        if (
+            end - stamp(sp["t0"])
+            >= pd.Timedelta(hours=hours)
+        ):
             close_trade(
-                st, sp, float(bar["c"]), "TIME EXIT", end
+                st,
+                sp,
+                float(bar["c"]),
+                "TIME EXIT",
+                end,
             )
             return
 
@@ -511,7 +570,8 @@ def manage(st, sp, fr, now, a):
         sp["state"] = "EXPIRED"
         event(
             st,
-            f"⌛ {sp['id']}: انتهت صلاحية الإعداد بدون دخول.",
+            f"⌛ {sp['id']}: انتهت صلاحية "
+            "الإعداد بدون دخول.",
             sp["id"] + ":expired",
         )
 
@@ -519,36 +579,45 @@ def manage(st, sp, fr, now, a):
 def setup_text(res, sp, fr, a):
     direction = "LONG" if sp["side"] == 1 else "SHORT"
     targets = sp["tps"]
+
     title = (
         "انتظار ريتست بسعر محدد"
         if sp["state"] == "ARMED"
         else "إعداد A — ينتظر افتتاح شمعة لاحقة"
     )
+
     distances = [
-        abs(x - sp["entry"]) / abs(sp["entry"] - sp["stop0"])
+        abs(x - sp["entry"])
+        / abs(sp["entry"] - sp["stop0"])
         for x in targets
     ]
 
     return (
-        f"🟠 {title} | {a.ASSETS[sp['key']][2]} {direction}\n"
+        f"🟠 {title} | "
+        f"{a.ASSETS[sp['key']][2]} {direction}\n"
         f"ID: {sp['id']}\n"
-        f"النوع: {sp['style']} | الفريم: {sp['tf']} | "
+        f"النوع: {sp['style']} | "
+        f"الفريم: {sp['tf']} | "
         f"جودة الإعداد: {sp['score']}/10\n"
         f"المصدر/الأداة: {fr['_source']}\n"
         f"آخر إغلاق 15m: "
         f"{fr['15m']['end'].iloc[-1].isoformat()}\n"
         f"سعر مرجعي {a.fmt(sp['entry'])} | "
         f"وقف {a.fmt(sp['stop'])}\n"
-        f"TP1 {a.fmt(targets[0])} ({distances[0]:.2f}R)\n"
-        f"TP2 {a.fmt(targets[1])} ({distances[1]:.2f}R)\n"
-        f"TP3 {a.fmt(targets[2])} ({distances[2]:.2f}R)\n"
-        "R:R المعروض إلى TP2، قبل الكلفة | "
-        f"كلفة ذهاب وعودة مفترضة {sp['cost_bps']:g} نقطة أساس\n"
+        f"TP1 {a.fmt(targets[0])} "
+        f"({distances[0]:.2f}R)\n"
+        f"TP2 {a.fmt(targets[1])} "
+        f"({distances[1]:.2f}R)\n"
+        f"TP3 {a.fmt(targets[2])} "
+        f"({distances[2]:.2f}R)\n"
+        f"R:R المعروض إلى TP2، قبل الكلفة | "
+        f"كلفة ذهاب وعودة مفترضة "
+        f"{sp['cost_bps']:g} نقطة أساس\n"
         f"{res['obs']}\n"
         "الأهداف قد تتضمن امتدادات حسابية (+1R) "
         "وليست كلها مستويات مرصودة.\n"
-        "التأكيد بالتتبع برسالة منفصلة؛ افتراضي فقط، "
-        "بدون تنفيذ أو ضمان ربح."
+        "التأكيد بالتتبع برسالة منفصلة؛ "
+        "افتراضي فقط، بدون تنفيذ أو ضمان ربح."
     )
 
 
@@ -579,18 +648,19 @@ def weekly(st, now):
 
     net = sum(trade["r"] for trade in closed)
     ambiguous = sum(
-        bool(trade.get("ambiguous")) for trade in closed
+        bool(trade.get("ambiguous"))
+        for trade in closed
     )
 
     event(
         st,
-        f"📋 تقرير أسبوع ورقي v2\n"
+        "📋 تقرير أسبوع ورقي v2\n"
         f"الصفقات المغلقة {len(closed)} | "
         f"صافي مفترض {net:+.2f}R\n"
         f"حالات OHLC الملتبسة {ambiguous} | "
         "كل هدف يغلق ثلث الحجم.\n"
-        "الكلفة تقديرية والعينة لا تثبت تفوق الاستراتيجية. "
-        "النتائج القديمة منفصلة.",
+        "الكلفة تقديرية والعينة لا تثبت "
+        "تفوق الاستراتيجية. النتائج القديمة منفصلة.",
         identity,
     )
 
@@ -617,16 +687,21 @@ def market_waiting(st, key, res, fr, now):
     if missing:
         reason = " | ".join(missing)
     elif "ناقص:" in observed:
-        reason = observed.split(
-            "ناقص:", 1
-        )[1].split("\n", 1)[0].strip()
+        reason = (
+            observed.split("ناقص:", 1)[1]
+            .split("\n", 1)[0]
+            .strip()
+        )
     elif observed.startswith((
         "تحليل المناطق: بيانات ناقصة",
         "تحليل المناطق: تعذر",
     )):
         reason = observed.split("\n", 1)[0]
     else:
-        reason = "ما تحقق إعداد دخول مؤهل حسب شروط المناطق الحالية"
+        reason = (
+            "ما تحقق إعداد دخول مؤهل "
+            "حسب شروط المناطق الحالية"
+        )
 
     closed = stamp(fr["15m"]["end"].iloc[-1])
     price = float(fr["15m"]["c"].iloc[-1])
@@ -644,7 +719,11 @@ def market_waiting(st, key, res, fr, now):
         "يوصلك برسالة منفصلة."
     )
 
-    event(st, text, key + ":waiting:" + closed.isoformat())
+    event(
+        st,
+        text,
+        key + ":waiting:" + closed.isoformat(),
+    )
     st["waiting_status_ts"][key] = now.isoformat()
     return True
 
@@ -652,28 +731,41 @@ def market_waiting(st, key, res, fr, now):
 def run(a, now=None):
     now = (
         pd.Timestamp.now(tz="UTC")
-        if now is None else stamp(now)
+        if now is None
+        else stamp(now)
     )
+
     st = a.load()
 
     if not isinstance(st.setdefault("outbox", []), list):
-        raise RuntimeError("invalid outbox; state preserved")
+        raise RuntimeError(
+            "invalid outbox; state preserved"
+        )
 
     token = os.environ.get("TG_TOKEN")
     chat = os.environ.get("TG_CHAT")
 
     if not token or not chat:
-        raise RuntimeError("TG_TOKEN and TG_CHAT required")
+        raise RuntimeError(
+            "TG_TOKEN and TG_CHAT required"
+        )
 
     if not flush(st, a.save, token, chat):
         return 1
 
-    for key in ("GOLD", "NDX"):
-        versions = st.setdefault("strategy_versions", {})
+    for key in a.ASSETS:
+        versions = st.setdefault(
+            "strategy_versions", {}
+        )
 
-        if versions.get(key) != "simple_zones_v1":
-            st.setdefault("last_analysis", {}).pop(key, None)
-            versions[key] = "simple_zones_v1"
+        if versions.get(key) != "sequence_v1":
+            st.setdefault(
+                "last_analysis", {}
+            ).pop(key, None)
+            st.setdefault(
+                "watch", {}
+            ).pop(key, None)
+            versions[key] = "sequence_v1"
 
     data, summary = {}, []
 
@@ -682,17 +774,25 @@ def run(a, now=None):
             data[key] = md.frames(key, now)
         except Exception as exc:
             reason = md.safe_error(exc)
-            LOG.error("DATA asset=%s ERROR %s", key, reason)
+            LOG.error(
+                "DATA asset=%s ERROR %s",
+                key, reason,
+            )
             summary.append(f"{key}: {reason}")
-            last = st.setdefault("health", {}).get(key)
+
+            last = st.setdefault(
+                "health", {}
+            ).get(key)
 
             if (
                 not last
-                or now - stamp(last) > pd.Timedelta(hours=6)
+                or now - stamp(last)
+                > pd.Timedelta(hours=6)
             ):
                 event(
                     st,
-                    f"⚠️ بيانات {key} غير متوفرة: {reason}\n"
+                    f"⚠️ بيانات {key} غير متوفرة: "
+                    f"{reason}\n"
                     "لا إشارة دخول جديدة لهذا الأصل.",
                 )
                 st["health"][key] = now.isoformat()
@@ -708,12 +808,16 @@ def run(a, now=None):
         btc_dir = t4 if t4 == t1 else 0
 
     nw = news.get_news(
-        st, now, os.environ.get("GEMINI_KEY", "")
+        st,
+        now,
+        os.environ.get("GEMINI_KEY", ""),
     )
 
     for key, fr in data.items():
         fresh, reason = md.freshness(fr, key, now)
-        last_close = stamp(fr["15m"]["end"].iloc[-1])
+        last_close = stamp(
+            fr["15m"]["end"].iloc[-1]
+        )
         sp = st["active"].get(key)
 
         if sp:
@@ -724,11 +828,15 @@ def run(a, now=None):
             ):
                 del st["active"][key]
 
-            summary.append(f"{key}: {sp['state']}")
+            summary.append(
+                f"{key}: {sp['state']}"
+            )
             continue
 
         if not fresh:
-            LOG.warning("SKIP asset=%s %s", key, reason)
+            LOG.warning(
+                "SKIP asset=%s %s", key, reason
+            )
             summary.append(f"{key}: {reason}")
             continue
 
@@ -741,18 +849,32 @@ def run(a, now=None):
             continue
 
         if (
-            st.setdefault("last_analysis", {}).get(key)
+            st.setdefault(
+                "last_analysis", {}
+            ).get(key)
             == last_close.isoformat()
         ):
             summary.append(
                 st.get("last_decision", {}).get(
-                    key, f"{key}: no new closed candle"
+                    key,
+                    f"{key}: no new closed candle",
                 )
             )
             continue
 
         try:
-            res = a.analyze(key, fr, btc_dir)
+            from setup_sequence import analyze_sequence
+
+            res = analyze_sequence(
+                a, st, key, fr, btc_dir
+            )
+
+            notice = res.pop(
+                "_sequence_notice", None
+            )
+            if notice:
+                event(st, notice)
+
             res = news.apply(res, nw)
 
             if key == "GOLD":
@@ -762,17 +884,30 @@ def run(a, now=None):
                     res.get("miss", []),
                 )
 
-            st["last_analysis"][key] = last_close.isoformat()
+            st["last_analysis"][key] = (
+                last_close.isoformat()
+            )
 
             LOG.info(
                 "ANALYSIS asset=%s tier=%s score=%s close=%s",
-                key, res["tier"], res["score"], last_close,
+                key,
+                res["tier"],
+                res["score"],
+                last_close,
             )
 
             if res["tier"] in ("A", "ARMED"):
-                sp = make_setup(st, res, fr, now)
-                status = decision_text(key, res, sp)
-                st.setdefault("last_decision", {})[key] = status
+                sp = make_setup(
+                    st, res, fr, now
+                )
+
+                status = decision_text(
+                    key, res, sp
+                )
+
+                st.setdefault(
+                    "last_decision", {}
+                )[key] = status
                 summary.append(status)
 
                 if cost_r(sp) > 0.35:
@@ -788,10 +923,11 @@ def run(a, now=None):
                     setup_text(res, sp, fr, a),
                     sp["id"] + ":setup",
                 )
-
             else:
                 status = decision_text(key, res)
-                st.setdefault("last_decision", {})[key] = status
+                st.setdefault(
+                    "last_decision", {}
+                )[key] = status
                 summary.append(status)
 
             if res["tier"] in ("B", "EARLY"):
@@ -799,13 +935,15 @@ def run(a, now=None):
                     ":E" if res["tier"] == "EARLY" else ""
                 )
                 old = st["watch"].get(wkey)
+
                 raw = (
                     f"{res['side']}:{res.get('style')}:"
                     f"{res.get('zone_p', 0):.2f}"
                 )
-                fingerprint = hashlib.sha256(
-                    raw.encode()
-                ).hexdigest()[:12]
+                fingerprint = (
+                    hashlib.sha256(raw.encode())
+                    .hexdigest()[:12]
+                )
 
                 same_area = (
                     key in ("GOLD", "NDX")
@@ -813,7 +951,8 @@ def run(a, now=None):
                     and old.get("side") == res["side"]
                     and old.get("zone_p") is not None
                     and abs(
-                        old["zone_p"] - res.get("zone_p", 0.0)
+                        old["zone_p"]
+                        - res.get("zone_p", 0.0)
                     ) <= 0.5 * res.get("a1", 0.0)
                 )
 
@@ -827,13 +966,23 @@ def run(a, now=None):
                     >= pd.Timedelta(hours=6)
                 ):
                     text = (
-                        a.msg_early(res, a.ASSETS[key][2])
+                        a.msg_early(
+                            res, a.ASSETS[key][2]
+                        )
                         if res["tier"] == "EARLY"
-                        else a.msg_watch(res, a.ASSETS[key][2])
+                        else a.msg_watch(
+                            res, a.ASSETS[key][2]
+                        )
                     )
-                    text = text.replace(
-                        "السعر الآن:", "آخر إغلاق:"
-                    ).replace("السعر:", "آخر إغلاق:")
+
+                    text = (
+                        text.replace(
+                            "السعر الآن:", "آخر إغلاق:"
+                        )
+                        .replace(
+                            "السعر:", "آخر إغلاق:"
+                        )
+                    )
 
                     text += (
                         "\nالمصدر: " + fr["_source"]
@@ -862,19 +1011,27 @@ def run(a, now=None):
                 key in ("GOLD", "NDX")
                 and res.get("tier") is None
             ):
-                market_waiting(st, key, res, fr, now)
+                market_waiting(
+                    st, key, res, fr, now
+                )
 
         except Exception as exc:
-            status = f"{key}: ERROR {md.safe_error(exc)}"
-            st.setdefault("last_decision", {})[key] = status
+            status = (
+                f"{key}: ERROR {md.safe_error(exc)}"
+            )
+            st.setdefault(
+                "last_decision", {}
+            )[key] = status
             summary.append(status)
 
             LOG.error(
-                "ANALYZE %s %s", key, md.safe_error(exc)
+                "ANALYZE %s %s",
+                key, md.safe_error(exc),
             )
             event(
                 st,
-                f"⚠️ خطأ تحليل {key}: {md.safe_error(exc)}؛ "
+                f"⚠️ خطأ تحليل {key}: "
+                f"{md.safe_error(exc)}؛ "
                 "لم تُصدر إشارة جديدة.",
             )
 
@@ -888,10 +1045,14 @@ def run(a, now=None):
             st,
             "ℹ️ فحص يدوي\n"
             + "\n".join(summary)
-            + "\n" + nw["status"],
+            + "\n"
+            + nw["status"],
         )
 
-    return 0 if flush(st, a.save, token, chat) else 1
+    return (
+        0 if flush(st, a.save, token, chat)
+        else 1
+    )
 
 
 def main():
@@ -899,12 +1060,16 @@ def main():
         level=logging.INFO,
         format="%(asctime)s %(levelname)s %(message)s",
     )
+
     a = importlib.import_module("agent")
 
     try:
         return run(a)
     except Exception as exc:
-        LOG.error("Scanner failed: %s", md.safe_error(exc))
+        LOG.error(
+            "Scanner failed: %s",
+            md.safe_error(exc),
+        )
         return 1
 
 
