@@ -487,15 +487,15 @@
    "Retail Sales m/m2026-10-15T12:30:00+00:00",
    "Fed Chairman Warsh Speaks2026-10-16T03:30:00+00:00"
   ],
-  "calendar_attempt_v2": "2026-10-21T23:45:49.771544+00:00",
-  "calendar_success_v2": "2026-10-21T23:45:49.771544+00:00"
+  "calendar_attempt_v2": "2026-10-22T06:12:12.106177+00:00",
+  "calendar_success_v2": "2026-10-22T06:12:12.106177+00:00"
  },
  "outbox": [],
  "last_analysis": {
-  "BTC": "2026-10-22T05:30:00+00:00",
-  "SOL": "2026-10-22T05:30:00+00:00",
-  "ETH": "2026-10-22T05:30:00+00:00",
-  "GOLD": "2026-10-22T05:30:00+00:00",
+  "BTC": "2026-10-22T06:00:00+00:00",
+  "SOL": "2026-10-22T06:00:00+00:00",
+  "ETH": "2026-10-22T06:00:00+00:00",
+  "GOLD": "2026-10-22T06:00:00+00:00",
   "NDX": "2026-10-21T20:00:00+00:00"
  },
  "event_ids": [
@@ -618,8 +618,8 @@
  ],
  "last_decision": {
   "BTC": "BTC: NONE score=4.0",
-  "ETH": "ETH: B score=6.0",
-  "SOL": "SOL: NONE score=5.5",
+  "ETH": "ETH: B score=7.5",
+  "SOL": "SOL: B score=6.5",
   "GOLD": "GOLD: NONE score=0.0",
   "NDX": "NDX: B score=5.0"
  },
