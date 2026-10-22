@@ -20,8 +20,8 @@
   },
   "SOL": {
    "side": -1,
-   "ts": "2026-10-22T09:06:00.244185+00:00",
-   "fingerprint": "bfbf73a3c19d",
+   "ts": "2026-10-22T12:29:52.473850+00:00",
+   "fingerprint": "60734b7b2d4d",
    "zone_p": null
   },
   "BTC": {
@@ -29,12 +29,6 @@
    "ts": "2026-10-22T11:22:15.274323+00:00",
    "fingerprint": "bfbf73a3c19d",
    "zone_p": null
-  },
-  "GOLD": {
-   "side": -1,
-   "ts": "2026-10-22T11:59:04.191513+00:00",
-   "fingerprint": "ca5644fcaf96",
-   "zone_p": 4068.01725
   }
  },
  "cool": {
@@ -499,15 +493,15 @@
    "Retail Sales m/m2026-10-15T12:30:00+00:00",
    "Fed Chairman Warsh Speaks2026-10-16T03:30:00+00:00"
   ],
-  "calendar_attempt_v2": "2026-10-22T06:12:12.106177+00:00",
-  "calendar_success_v2": "2026-10-22T06:12:12.106177+00:00"
+  "calendar_attempt_v2": "2026-10-22T12:29:52.473850+00:00",
+  "calendar_success_v2": "2026-10-22T12:29:52.473850+00:00"
  },
  "outbox": [],
  "last_analysis": {
-  "BTC": "2026-10-22T11:45:00+00:00",
-  "SOL": "2026-10-22T11:45:00+00:00",
-  "ETH": "2026-10-22T11:45:00+00:00",
-  "GOLD": "2026-10-22T11:45:00+00:00",
+  "BTC": "2026-10-22T12:15:00+00:00",
+  "SOL": "2026-10-22T12:15:00+00:00",
+  "ETH": "2026-10-22T12:15:00+00:00",
+  "GOLD": "2026-10-22T12:15:00+00:00",
   "NDX": "2026-10-21T20:00:00+00:00"
  },
  "event_ids": [
@@ -636,13 +630,14 @@
   "4da3b1b4-dbb0-447e-9cfb-200ed54838c9",
   "GOLD:waiting:2026-10-22T09:30:00+00:00",
   "80c9ec6d-f910-44d5-ad3d-e23e0eeaece3",
-  "2321249d-efd0-486e-8635-6eeebd01a486"
+  "2321249d-efd0-486e-8635-6eeebd01a486",
+  "7be729d6-2040-4988-9440-f1ce8b299e81"
  ],
  "last_decision": {
   "BTC": "BTC: B score=6.5",
   "ETH": "ETH: B score=8.5",
-  "SOL": "SOL: B score=8.0",
-  "GOLD": "GOLD: B score=7.5",
+  "SOL": "SOL: B score=8.5",
+  "GOLD": "GOLD: NONE score=0.0",
   "NDX": "NDX: B score=5.0"
  },
  "strategy_versions": {
