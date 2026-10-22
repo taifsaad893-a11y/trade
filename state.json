@@ -8,19 +8,19 @@
   },
   "ETH": {
    "side": -1,
-   "ts": "2026-10-22T17:25:40.348191+00:00",
+   "ts": "2026-10-22T18:11:58.579695+00:00",
    "fingerprint": "bfbf73a3c19d",
    "zone_p": null
   },
   "SOL": {
    "side": -1,
-   "ts": "2026-10-22T17:25:40.348191+00:00",
+   "ts": "2026-10-22T18:11:58.579695+00:00",
    "fingerprint": "bfbf73a3c19d",
    "zone_p": null
   },
   "NDX": {
    "side": -1,
-   "ts": "2026-10-22T17:00:06.355740+00:00",
+   "ts": "2026-10-22T18:11:58.579695+00:00",
    "fingerprint": "04974282b9e6",
    "zone_p": 29066.899088541668
   }
@@ -492,11 +492,11 @@
  },
  "outbox": [],
  "last_analysis": {
-  "BTC": "2026-10-22T17:45:00+00:00",
-  "SOL": "2026-10-22T17:45:00+00:00",
-  "ETH": "2026-10-22T17:45:00+00:00",
-  "GOLD": "2026-10-22T17:45:00+00:00",
-  "NDX": "2026-10-22T17:45:00+00:00"
+  "BTC": "2026-10-22T18:00:00+00:00",
+  "ETH": "2026-10-22T18:00:00+00:00",
+  "SOL": "2026-10-22T18:00:00+00:00",
+  "GOLD": "2026-10-22T18:00:00+00:00",
+  "NDX": "2026-10-22T18:00:00+00:00"
  },
  "event_ids": [
   "b8203e61-129a-4d6d-96b1-bdea07954867",
@@ -647,21 +647,29 @@
   "e3b18ec1-8c6d-44e1-98b8-6308a9b1aedc",
   "128d7da4-9889-46a0-bed7-aeb7471ea427",
   "3d918ca9-2300-4e15-8ee8-2a2d80dc3fda",
-  "6e7524cd-316e-4051-bc29-626c92dcb463"
+  "6e7524cd-316e-4051-bc29-626c92dcb463",
+  "21b63770-a670-4065-937b-48241890e9ce",
+  "398bf87b-fe91-4c4c-afe8-96da42a7990c",
+  "6401f378-b0d2-495b-8bcd-17f5f68f0c55",
+  "14bc9727-e875-49ff-8a64-094171bbdc38"
  ],
  "last_decision": {
   "BTC": "BTC: NONE score=3.5",
-  "ETH": "ETH: B score=9.5",
-  "SOL": "SOL: B score=8.0",
+  "ETH": "ETH: B score=8.0",
+  "SOL": "SOL: B score=7.5",
   "GOLD": "GOLD: NONE score=0.0",
-  "NDX": "NDX: B score=5.0"
+  "NDX": "NDX: B score=7.5"
  },
  "strategy_versions": {
-  "GOLD": "simple_zones_v1",
-  "NDX": "simple_zones_v1"
+  "GOLD": "sequence_v1",
+  "NDX": "sequence_v1",
+  "BTC": "sequence_v1",
+  "ETH": "sequence_v1",
+  "SOL": "sequence_v1"
  },
  "waiting_status_ts": {
   "GOLD": "2026-10-22T15:16:54.034330+00:00",
-  "NDX": "2026-10-22T17:00:06.355740+00:00"
- }
+  "NDX": "2026-10-22T18:11:58.579695+00:00"
+ },
+ "confirmation_setups": {}
 }
