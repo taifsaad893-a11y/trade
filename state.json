@@ -1,40 +1,5 @@
 {
- "active": {
-  "GOLD": {
-   "id": "GOLD-024",
-   "key": "GOLD",
-   "side": -1,
-   "style": "SimpleZones",
-   "tf": "15m",
-   "entry": 4056.0493,
-   "reference_entry": 4056.0493,
-   "stop": 4081.063674285714,
-   "stop0": 4081.063674285714,
-   "tps": [
-    4031.034925714286,
-    4006.020551428572,
-    3981.006177142858
-   ],
-   "hits": [
-    false,
-    false,
-    false
-   ],
-   "score": 7.5,
-   "rr": 2.0,
-   "state": "PENDING",
-   "t_decl": "2026-10-22T14:03:46.654655+00:00",
-   "t0": "2026-10-22T14:03:46.654655+00:00",
-   "not_before": "2026-10-22T14:15:00+00:00",
-   "expires": "2026-10-22T18:03:46.654655+00:00",
-   "source": "twelve:XAU/USD",
-   "engine_version": "paper-v2",
-   "strategy_version": "simple_zones_v1",
-   "cost_bps": 14.0,
-   "zone": null,
-   "ambiguous": false
-  }
- },
+ "active": {},
  "watch": {
   "NDX:E": {
    "side": -1,
@@ -43,19 +8,19 @@
   },
   "NDX": {
    "side": -1,
-   "ts": "2026-10-21T19:57:22.230520+00:00",
-   "fingerprint": "b597787ae3dc",
-   "zone_p": 29868.581473214286
+   "ts": "2026-10-22T14:43:33.820560+00:00",
+   "fingerprint": "1bdfc1534bbb",
+   "zone_p": 29219.306640625
   },
   "ETH": {
    "side": -1,
-   "ts": "2026-10-22T09:06:00.244185+00:00",
-   "fingerprint": "bfbf73a3c19d",
+   "ts": "2026-10-22T14:43:33.820560+00:00",
+   "fingerprint": "60734b7b2d4d",
    "zone_p": null
   },
-  "BTC": {
+  "SOL": {
    "side": -1,
-   "ts": "2026-10-22T14:03:46.654655+00:00",
+   "ts": "2026-10-22T14:43:33.820560+00:00",
    "fingerprint": "bfbf73a3c19d",
    "zone_p": null
   }
@@ -527,11 +492,11 @@
  },
  "outbox": [],
  "last_analysis": {
-  "BTC": "2026-10-22T14:00:00+00:00",
-  "SOL": "2026-10-22T14:00:00+00:00",
-  "ETH": "2026-10-22T14:00:00+00:00",
+  "BTC": "2026-10-22T14:30:00+00:00",
+  "SOL": "2026-10-22T14:30:00+00:00",
+  "ETH": "2026-10-22T14:30:00+00:00",
   "GOLD": "2026-10-22T14:00:00+00:00",
-  "NDX": "2026-10-21T20:00:00+00:00"
+  "NDX": "2026-10-22T14:30:00+00:00"
  },
  "event_ids": [
   "b8203e61-129a-4d6d-96b1-bdea07954867",
@@ -663,14 +628,18 @@
   "7be729d6-2040-4988-9440-f1ce8b299e81",
   "30ae9e8c-b896-49b1-8e93-cfab131be5da",
   "4d55acf9-c04b-4ad6-a202-90be2f18cd34",
-  "GOLD-024:setup"
+  "GOLD-024:setup",
+  "eb77a83e-59a4-40db-8901-2777c879b192",
+  "3b3866da-9751-41e0-939f-4647a673d544",
+  "GOLD-024:invalid",
+  "3e9d8a33-6904-46ec-a57c-defdf7c1402e"
  ],
  "last_decision": {
-  "BTC": "BTC: B score=6.0",
-  "ETH": "ETH: B score=8.5",
-  "SOL": "SOL: NONE score=5.0",
+  "BTC": "BTC: NONE score=5.0",
+  "ETH": "ETH: B score=7.5",
+  "SOL": "SOL: B score=7.0",
   "GOLD": "GOLD: PENDING score=7.5 | GOLD-024",
-  "NDX": "NDX: B score=5.0"
+  "NDX": "NDX: B score=10.0"
  },
  "strategy_versions": {
   "GOLD": "simple_zones_v1",
@@ -678,6 +647,6 @@
  },
  "waiting_status_ts": {
   "GOLD": "2026-10-22T11:59:04.191513+00:00",
-  "NDX": "2026-10-21T19:57:22.230520+00:00"
+  "NDX": "2026-10-22T14:43:33.820560+00:00"
  }
 }
