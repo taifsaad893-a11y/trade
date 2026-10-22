@@ -16,15 +16,22 @@ import candle_archive
 import scanner as engine
 import scanner_data as md
 import gold_volume as gv
+
 from upgrade_agent import patch_source
+from setup_sequence import analyze_sequence
 
 LOG = logging.getLogger(__name__)
 OUT = Path("backtest_results")
+
 DAYS = int(os.environ.get("BT_DAYS", "90"))
 STEP = int(os.environ.get("BT_STEP", "1"))
+
 SCAN_DELAY = pd.Timedelta(
-    seconds=float(os.environ.get("BT_SCAN_DELAY_SECONDS", "120"))
+    seconds=float(
+        os.environ.get("BT_SCAN_DELAY_SECONDS", "120")
+    )
 )
+
 HOSTS = (
     "https://data-api.binance.vision",
     "https://api.binance.com",
@@ -42,7 +49,12 @@ def load_strategy():
     source = patch_source(
         Path("agent.py").read_text(encoding="utf-8")
     )
-    exec(compile(source, "agent.py", "exec"), module.__dict__)
+
+    exec(
+        compile(source, "agent.py", "exec"),
+        module.__dict__,
+    )
+
     return module
 
 
@@ -59,7 +71,7 @@ def binance_range(symbol, tf, start, end):
 
         for host in HOSTS:
             try:
-                batch = md.get_json(
+                candidate = md.get_json(
                     host + "/api/v3/klines",
                     {
                         "symbol": symbol,
@@ -70,9 +82,12 @@ def binance_range(symbol, tf, start, end):
                     },
                 )
 
-                if not isinstance(batch, list):
-                    raise ValueError("non-list Binance payload")
+                if not isinstance(candidate, list):
+                    raise ValueError(
+                        "non-list Binance payload"
+                    )
 
+                batch = candidate
                 break
 
             except Exception as exc:
@@ -108,12 +123,16 @@ def binance_range(symbol, tf, start, end):
     d = pd.DataFrame(rows).iloc[
         :, [0, 1, 2, 3, 4, 5, 6, 9]
     ]
-    d.columns = ["t", "o", "h", "l", "c", "v", "end", "tb"]
+    d.columns = [
+        "t", "o", "h", "l", "c", "v", "end", "tb"
+    ]
+
     d.index = pd.to_datetime(
         d.pop("t").astype("int64"),
         unit="ms",
         utc=True,
     )
+
     d["end"] = pd.to_datetime(
         d["end"].astype("int64") + 1,
         unit="ms",
@@ -123,7 +142,10 @@ def binance_range(symbol, tf, start, end):
     d = gv.distinct(d)
 
     return md.clean(
-        d, tf, end + pd.Timedelta(seconds=2), d["end"]
+        d,
+        tf,
+        end + pd.Timedelta(seconds=2),
+        d["end"],
     )
 
 
@@ -136,17 +158,19 @@ def twelve_range(symbol, tf, start, end):
     parts = []
     cursor = end
 
+    intervals = {
+        "15m": "15min",
+        "1h": "1h",
+        "4h": "4h",
+        "1d": "1day",
+    }
+
     for _ in range(20):
         payload = md.get_json(
             "https://api.twelvedata.com/time_series",
             {
                 "symbol": symbol,
-                "interval": {
-                    "15m": "15min",
-                    "1h": "1h",
-                    "4h": "4h",
-                    "1d": "1day",
-                }[tf],
+                "interval": intervals[tf],
                 "outputsize": 5000,
                 "timezone": "UTC",
                 "apikey": key,
@@ -163,7 +187,9 @@ def twelve_range(symbol, tf, start, end):
             )
 
         d = md.twelve_payload(
-            payload, tf, end + pd.Timedelta(seconds=2)
+            payload,
+            tf,
+            end + pd.Timedelta(seconds=2),
         )
 
         if d.empty:
@@ -188,7 +214,11 @@ def twelve_range(symbol, tf, start, end):
         raise ValueError("empty Twelve history")
 
     d = gv.distinct(pd.concat(parts))
-    return d[(d.index >= start) & (d["end"] <= end)]
+
+    return d[
+        (d.index >= start)
+        & (d["end"] <= end)
+    ]
 
 
 def okx_range(symbol, tf, start, end):
@@ -198,17 +228,19 @@ def okx_range(symbol, tf, start, end):
     cursor = int(end.timestamp() * 1000)
     oldest_needed = int(start.timestamp() * 1000)
 
+    bars = {
+        "15m": "15m",
+        "1h": "1H",
+        "4h": "4H",
+        "1d": "1Dutc",
+    }
+
     for _ in range(1200):
         payload = md.get_json(
             "https://www.okx.com/api/v5/market/history-candles",
             {
                 "instId": symbol,
-                "bar": {
-                    "15m": "15m",
-                    "1h": "1H",
-                    "4h": "4H",
-                    "1d": "1Dutc",
-                }[tf],
+                "bar": bars[tf],
                 "after": str(cursor),
                 "limit": 100,
             },
@@ -224,7 +256,11 @@ def okx_range(symbol, tf, start, end):
         if not page:
             break
 
-        rows.extend(row for row in page if row[8] == "1")
+        rows.extend(
+            row for row in page
+            if row[8] == "1"
+        )
+
         oldest = min(int(row[0]) for row in page)
 
         if oldest >= cursor:
@@ -243,26 +279,40 @@ def okx_range(symbol, tf, start, end):
 
     d = pd.DataFrame(rows).iloc[:, :6]
     d.columns = ["t", "o", "h", "l", "c", "v"]
+
     d.index = pd.to_datetime(
         d.pop("t").astype("int64"),
         unit="ms",
         utc=True,
     )
-    d = gv.distinct(d)
-    d = md.clean(d, tf, end + pd.Timedelta(seconds=2))
 
-    return d[(d.index >= start) & (d["end"] <= end)]
+    d = gv.distinct(d)
+    d = md.clean(
+        d, tf, end + pd.Timedelta(seconds=2)
+    )
+
+    return d[
+        (d.index >= start)
+        & (d["end"] <= end)
+    ]
 
 
 def load_asset(key, start, end):
     provider, symbol = md.specs(key)[0]
+
     getter = {
         "binance": binance_range,
         "twelve": twelve_range,
         "okx": okx_range,
     }.get(provider)
 
-    warm = {"15m": 7, "1h": 20, "4h": 70, "1d": 420}
+    warm = {
+        "15m": 7,
+        "1h": 20,
+        "4h": 70,
+        "1d": 420,
+    }
+
     frames = {}
 
     for tf in ("15m", "1h", "4h", "1d"):
@@ -275,9 +325,16 @@ def load_asset(key, start, end):
                     symbol,
                     tf,
                     end,
-                    start=start - pd.Timedelta(days=warm[tf]),
+                    start=start - pd.Timedelta(
+                        days=warm[tf]
+                    ),
                 )
             else:
+                if getter is None:
+                    raise ValueError(
+                        "unsupported provider: " + provider
+                    )
+
                 frames[tf] = getter(
                     symbol,
                     tf,
@@ -288,10 +345,15 @@ def load_asset(key, start, end):
             d = frames[tf]
 
             LOG.info(
-                "BT_SOURCE asset=%s source=%s:%s tf=%s "
-                "bars=%d first=%s last_end=%s",
-                key, provider, symbol, tf,
-                len(d), d.index[0], d["end"].iloc[-1],
+                "BT_SOURCE asset=%s source=%s:%s "
+                "tf=%s bars=%d first=%s last_end=%s",
+                key,
+                provider,
+                symbol,
+                tf,
+                len(d),
+                d.index[0],
+                d["end"].iloc[-1],
             )
 
         except Exception as exc:
@@ -306,6 +368,7 @@ def load_asset(key, start, end):
     frames["_source"] = provider + ":" + symbol
     frames["_provider"] = provider
     frames["_symbol"] = symbol
+
     return frames
 
 
@@ -314,7 +377,8 @@ def snapshot(frames, decision, gc=None):
         key: frames[key][
             frames[key]["end"] <= decision
         ].tail(
-            500 if frames["_provider"] == "binance" else 400
+            500 if frames["_provider"] == "binance"
+            else 400
         )
         for key in ("15m", "1h", "4h", "1d")
         if key in frames
@@ -421,15 +485,24 @@ def run_asset(a, key, frames, btc, start, end, gc=None):
                 btc_direction = t4 if t4 == t1 else 0
 
         try:
-            result = a.analyze(
-                key, current, btc_direction
+            result = analyze_sequence(
+                a,
+                st,
+                key,
+                current,
+                btc_direction,
             )
+
             metrics["analyses"] += 1
 
             if metrics["first_decision"] is None:
-                metrics["first_decision"] = decision.isoformat()
+                metrics["first_decision"] = (
+                    decision.isoformat()
+                )
 
-            metrics["last_decision"] = decision.isoformat()
+            metrics["last_decision"] = (
+                decision.isoformat()
+            )
 
             if (
                 result.get("gc_profile")
@@ -470,7 +543,9 @@ def run_asset(a, key, frames, btc, start, end, gc=None):
             if metrics["analysis_errors"] <= 3:
                 LOG.error(
                     "BT_ANALYSIS_ERROR %s %s %s",
-                    key, decision, md.safe_error(exc),
+                    key,
+                    decision,
+                    md.safe_error(exc),
                 )
 
         st["outbox"].clear()
@@ -483,11 +558,21 @@ def run_asset(a, key, frames, btc, start, end, gc=None):
 
 def summary(trades):
     ordered = sorted(
-        trades, key=lambda trade: trade["t_close"]
+        trades,
+        key=lambda trade: trade["t_close"],
     )
-    results = [float(trade["r"]) for trade in ordered]
-    gross_profit = sum(r for r in results if r > 0)
-    gross_loss = -sum(r for r in results if r < 0)
+
+    results = [
+        float(trade["r"]) for trade in ordered
+    ]
+
+    gross_profit = sum(
+        r for r in results if r > 0
+    )
+    gross_loss = -sum(
+        r for r in results if r < 0
+    )
+
     equity = peak = drawdown = 0.0
 
     for result in results:
@@ -518,7 +603,8 @@ def summary(trades):
         "profit_factor": (
             gross_profit / gross_loss
             if gross_loss
-            else "infinity" if gross_profit else None
+            else "infinity" if gross_profit
+            else None
         ),
         "max_closed_trade_drawdown_R": drawdown,
         "ambiguous_trades": sum(
@@ -535,7 +621,6 @@ def line(trades):
         return "0 صفقة مغلقة"
 
     profit_factor = stats["profit_factor"]
-
     profit_factor = (
         f"{profit_factor:.2f}"
         if isinstance(profit_factor, (int, float))
@@ -560,6 +645,7 @@ def report(mode, results, start, end):
         for value in results.values()
         for trade in value["trades"]
     ]
+
     cut = start + (end - start) * 2 / 3
 
     first = [
@@ -573,7 +659,7 @@ def report(mode, results, start, end):
 
     lines = [
         f"🧪 باكتيست | ICT للعملات {mode} | "
-        "ذهب وناسداك: ترند + مناطق + CISD",
+        "بريك أوت للكل + تأكيد مناطق للذهب وناسداك",
         f"الفترة المطلوبة UTC: "
         f"{start.isoformat()} → {end.isoformat()}",
         "الكل: " + line(all_trades),
@@ -596,7 +682,7 @@ def report(mode, results, start, end):
             f"{coverage['gc_available_decisions']} | "
             f"مفتوحة بالنهاية "
             f"{bool(coverage['open_at_end'])}",
-            f"  تغطية GC الفعلية: "
+            "  تغطية GC الفعلية: "
             f"{coverage['first_gc_decision']} → "
             f"{coverage['last_gc_decision']}",
         ]
@@ -610,21 +696,23 @@ def report(mode, results, start, end):
 
     lines += [
         f"قبل الكلفة {totals['gross_R']:+.2f}R | "
-        f"الكلفة المفترضة {totals['assumed_cost_R']:.2f}R",
+        f"الكلفة المفترضة "
+        f"{totals['assumed_cost_R']:.2f}R",
         "كلفة كلية مفترضة ذهاب/عودة (bps): " + costs,
-        "الذهب وناسداك: ترند + مناطق + CISD؛ "
-        "الفوليوم العادي للتأييد فقط، بدون بروفايل. "
-        "كل هدف ثلث الحجم.",
-        f"تأخير الفحص المفترض بعد إغلاق الشمعة: "
+        "بريك أوت لكل الأصول بدون ريتست أو CISD. "
+        "الذهب وناسداك لديهما أيضاً إعداد مناطق محفوظ؛ "
+        "الفوليوم للسياق فقط. كل هدف ثلث الحجم.",
+        "تأخير الفحص المفترض بعد إغلاق الشمعة: "
         f"{SCAN_DELAY.total_seconds():g} ثانية؛ "
         "تأخير GitHub الحقيقي متغير.",
         "أخبار الماضي غير معاد تشغيلها. "
         "تأخير المصدر التاريخي غير معلوم بالكامل؛ "
         "GC عليه تأخير مفترض محافظ.",
         "تغطية Yahoo أقصر من 90 يوم؛ "
-        "راجع التواريخ الفعلية. "
-        "الانقسام الزمني وصفي وليس إثبات اختبار خارج العينة.",
-        "الهبوط من صفقات مغلقة، ولا يشمل التذبذب العائم. "
+        "راجع التواريخ الفعلية. الانقسام الزمني وصفي "
+        "وليس إثبات اختبار خارج العينة.",
+        "الهبوط من صفقات مغلقة، "
+        "ولا يشمل التذبذب العائم. "
         "النتائج لا تثبت تفوقاً أو تضمن المستقبل.",
     ]
 
@@ -656,11 +744,16 @@ def save_results(mode, results, text, start, end):
             "gc_delay_minutes": os.environ.get(
                 "GC_DELAY_MINUTES", "20"
             ),
-            "gold_volume_mode": "ordinary_volume_context_only",
-            "gold_and_ndx_strategy": "simple_zones_v1",
+            "gold_volume_mode": (
+                "ordinary_volume_context_only"
+            ),
+            "gold_and_ndx_strategy": "sequence_v1",
+            "breakout_all_assets": True,
             "news_replayed": False,
             "scan_every_n_15m_bars": STEP,
-            "scan_delay_seconds": SCAN_DELAY.total_seconds(),
+            "scan_delay_seconds": (
+                SCAN_DELAY.total_seconds()
+            ),
         },
     }
 
@@ -675,18 +768,32 @@ def save_results(mode, results, text, start, end):
     )
 
     (OUT / f"report_{mode}.txt").write_text(
-        text, encoding="utf-8"
+        text,
+        encoding="utf-8",
     )
 
     with (OUT / f"trades_{mode}.csv").open(
-        "w", encoding="utf-8-sig", newline=""
+        "w",
+        encoding="utf-8-sig",
+        newline="",
     ) as handle:
         fields = [
-            "id", "key", "side", "style",
-            "entry", "stop0", "t_decl",
-            "t0", "t_close", "exit", "r",
-            "gross_r", "ambiguous", "source",
+            "id",
+            "key",
+            "side",
+            "style",
+            "entry",
+            "stop0",
+            "t_decl",
+            "t0",
+            "t_close",
+            "exit",
+            "r",
+            "gross_r",
+            "ambiguous",
+            "source",
         ]
+
         writer = csv.DictWriter(
             handle,
             fieldnames=fields,
@@ -698,8 +805,11 @@ def save_results(mode, results, text, start, end):
 
 def send_report(text):
     st = empty_state()
+
     engine.event(
-        st, text, "backtest-" + str(int(time.time()))
+        st,
+        text,
+        "backtest-" + str(int(time.time())),
     )
 
     if not engine.flush(
@@ -728,19 +838,23 @@ def main():
     replay = os.environ.get("BT_INPUT_DIR")
 
     if replay:
-        data, gc, start, end, failures = candle_archive.load(
-            Path(replay)
+        data, gc, start, end, failures = (
+            candle_archive.load(Path(replay))
         )
-
     else:
-        end = pd.Timestamp.now(tz="UTC").floor("15min")
+        end = pd.Timestamp.now(
+            tz="UTC"
+        ).floor("15min")
         start = end - pd.Timedelta(days=DAYS)
+
         data = {}
         failures = {}
 
         for key in strategy.ASSETS:
             try:
-                data[key] = load_asset(key, start, end)
+                data[key] = load_asset(
+                    key, start, end
+                )
             except Exception as exc:
                 failures[key] = md.safe_error(exc)
                 LOG.error(
@@ -753,41 +867,54 @@ def main():
         if "GOLD" in data:
             try:
                 gc = gv.download(
-                    start - pd.Timedelta(days=7), end
+                    start - pd.Timedelta(days=7),
+                    end,
                 )
             except Exception as exc:
                 LOG.error(
-                    "BT_GC_ERROR %s", md.safe_error(exc)
+                    "BT_GC_ERROR %s",
+                    md.safe_error(exc),
                 )
 
     if (
-        os.environ.get("BT_SAVE_CANDLES", "true").lower()
-        == "true"
+        os.environ.get(
+            "BT_SAVE_CANDLES", "true"
+        ).lower() == "true"
     ):
         candle_archive.save(
             OUT / "input_candles",
-            data, gc, start, end, failures,
+            data,
+            gc,
+            start,
+            end,
+            failures,
         )
 
     OUT.mkdir(exist_ok=True)
 
     (OUT / "load_errors.json").write_text(
         json.dumps(
-            failures, ensure_ascii=False, indent=2
+            failures,
+            ensure_ascii=False,
+            indent=2,
         ),
         encoding="utf-8",
     )
 
     if not data:
         raise RuntimeError(
-            "no assets loaded; no backtest result claimed"
+            "no assets loaded; "
+            "no backtest result claimed"
         )
 
     modes = (
         [True, False]
-        if os.environ.get("COMPARE_ICT", "false").lower() == "true"
+        if os.environ.get(
+            "COMPARE_ICT", "false"
+        ).lower() == "true"
         else [True]
     )
+
     had_errors = bool(failures)
 
     for use_ict in modes:
@@ -805,7 +932,9 @@ def main():
                 gc if key == "GOLD" else None,
             )
 
-            had_errors |= coverage["analysis_errors"] > 0
+            had_errors |= (
+                coverage["analysis_errors"] > 0
+            )
 
             results[key] = {
                 "trades": trades,
@@ -814,7 +943,9 @@ def main():
             }
 
         name = "on" if use_ict else "off"
-        text = report(name, results, start, end)
+        text = report(
+            name, results, start, end
+        )
 
         if failures:
             text += (
@@ -823,16 +954,20 @@ def main():
             )
 
         print(text)
-        save_results(name, results, text, start, end)
+
+        save_results(
+            name, results, text, start, end
+        )
 
         if (
-            os.environ.get("BT_SEND_TELEGRAM", "false").lower()
-            == "true"
+            os.environ.get(
+                "BT_SEND_TELEGRAM", "false"
+            ).lower() == "true"
         ):
             brief = (
                 "\n".join(text.splitlines()[:6])
-                + "\nالتفاصيل والتغطية والأخطاء في ملفات "
-                "backtest-results داخل Actions."
+                + "\nالتفاصيل والتغطية والأخطاء "
+                "في ملفات backtest-results داخل Actions."
             )
             send_report(brief)
 
