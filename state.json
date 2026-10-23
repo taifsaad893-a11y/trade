@@ -5,18 +5,6 @@
    "side": -1,
    "ts": "2026-10-20T14:50:04.712551+00:00",
    "fingerprint": "c01a89f078c1"
-  },
-  "BTC": {
-   "side": -1,
-   "ts": "2026-10-23T15:45:00.429802+00:00",
-   "fingerprint": "60734b7b2d4d",
-   "zone_p": null
-  },
-  "ETH": {
-   "side": -1,
-   "ts": "2026-10-23T14:27:47.514204+00:00",
-   "fingerprint": "bfbf73a3c19d",
-   "zone_p": null
   }
  },
  "cool": {
@@ -486,11 +474,11 @@
  },
  "outbox": [],
  "last_analysis": {
-  "BTC": "2026-10-23T15:30:00+00:00",
-  "ETH": "2026-10-23T15:30:00+00:00",
-  "SOL": "2026-10-23T15:30:00+00:00",
-  "GOLD": "2026-10-23T15:30:00+00:00",
-  "NDX": "2026-10-23T15:30:00+00:00"
+  "BTC": "2026-10-23T16:15:00+00:00",
+  "ETH": "2026-10-23T16:15:00+00:00",
+  "SOL": "2026-10-23T16:15:00+00:00",
+  "GOLD": "2026-10-23T16:15:00+00:00",
+  "NDX": "2026-10-23T16:15:00+00:00"
  },
  "event_ids": [
   "b8203e61-129a-4d6d-96b1-bdea07954867",
@@ -697,9 +685,9 @@
   "d90f1f6b-d7de-45cb-bd95-0cda3cc57091"
  ],
  "last_decision": {
-  "BTC": "BTC: B score=8.5",
-  "ETH": "ETH: B score=6.0",
-  "SOL": "SOL: NONE score=4.0",
+  "BTC": "BTC: NONE score=4.5",
+  "ETH": "ETH: NONE score=5.0",
+  "SOL": "SOL: NONE score=3.0",
   "GOLD": "GOLD: NONE score=0.0",
   "NDX": "NDX: NONE score=0.0"
  },
