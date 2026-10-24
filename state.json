@@ -6,7 +6,7 @@
    "side": -1,
    "style": "Breakout",
    "tf": "15m",
-   "entry": 98.87,
+   "entry": 99.14,
    "reference_entry": 98.87,
    "stop": 100.58914285714285,
    "stop0": 100.58914285714285,
@@ -21,10 +21,10 @@
     false
    ],
    "score": 7.5,
-   "rr": 2.6170849260428937,
-   "state": "PENDING",
+   "rr": 3.291009463722411,
+   "state": "ENTERED",
    "t_decl": "2026-10-24T15:38:35.213773+00:00",
-   "t0": "2026-10-24T15:38:35.213773+00:00",
+   "t0": "2026-10-24T15:45:00+00:00",
    "not_before": "2026-10-24T15:45:00+00:00",
    "expires": "2026-10-24T19:38:35.213773+00:00",
    "source": "binance:SOLUSDT",
@@ -32,7 +32,9 @@
    "strategy_version": "sequence_v1",
    "cost_bps": 14.0,
    "zone": null,
-   "ambiguous": false
+   "ambiguous": false,
+   "entry_mode": "NEXT_OPEN",
+   "seen": "2026-10-24T15:45:00+00:00"
   }
  },
  "watch": {
@@ -43,9 +45,9 @@
   },
   "ETH": {
    "side": -1,
-   "ts": "2026-10-24T15:38:35.213773+00:00",
-   "fingerprint": "de39ad5776cb",
-   "zone_p": 2306.16
+   "ts": "2026-10-24T16:06:57.890198+00:00",
+   "fingerprint": "bfbf73a3c19d",
+   "zone_p": null
   },
   "NDX": {
    "side": -1,
@@ -55,9 +57,9 @@
   },
   "BTC": {
    "side": -1,
-   "ts": "2026-10-24T15:38:35.213773+00:00",
-   "fingerprint": "c037e6aa73f0",
-   "zone_p": 79557.22
+   "ts": "2026-10-24T16:06:57.890198+00:00",
+   "fingerprint": "bfbf73a3c19d",
+   "zone_p": null
   },
   "GOLD": {
    "side": -1,
@@ -533,10 +535,10 @@
  },
  "outbox": [],
  "last_analysis": {
-  "BTC": "2026-10-24T15:30:00+00:00",
-  "ETH": "2026-10-24T15:30:00+00:00",
+  "BTC": "2026-10-24T16:00:00+00:00",
+  "ETH": "2026-10-24T16:00:00+00:00",
   "SOL": "2026-10-24T15:30:00+00:00",
-  "GOLD": "2026-10-24T15:30:00+00:00",
+  "GOLD": "2026-10-24T16:00:00+00:00",
   "NDX": "2026-10-23T20:00:00+00:00"
  },
  "event_ids": [
@@ -831,11 +833,14 @@
   "c44c8dba-4012-42d2-a0cb-51004acfb547",
   "cb718f3b-7464-4347-b05a-bca58971c922",
   "c5422621-3a8b-425a-ac81-4a52b6e2d70c",
-  "SOL-027:setup"
+  "SOL-027:setup",
+  "a6aa9b96-3aea-4d21-8e3d-fd0753cb4ef7",
+  "aa55b720-0494-49f9-9f6e-3e19f3f99838",
+  "SOL-027:entered"
  ],
  "last_decision": {
-  "BTC": "BTC: B score=5.0",
-  "ETH": "ETH: B score=5.0",
+  "BTC": "BTC: B score=10.0",
+  "ETH": "ETH: B score=9.0",
   "SOL": "SOL: PENDING score=7.5 | SOL-027",
   "GOLD": "GOLD: B score=5.0",
   "NDX": "NDX: B score=7.5"
