@@ -1,5 +1,40 @@
 {
- "active": {},
+ "active": {
+  "BTC": {
+   "id": "BTC-028",
+   "key": "BTC",
+   "side": -1,
+   "style": "Pullback",
+   "tf": "15m",
+   "entry": 80340.0,
+   "reference_entry": 80340.0,
+   "stop": 80664.00385714286,
+   "stop0": 80664.00385714286,
+   "tps": [
+    80015.99614285714,
+    79691.99228571428,
+    79367.98842857142
+   ],
+   "hits": [
+    false,
+    false,
+    false
+   ],
+   "score": 9.0,
+   "rr": 2.0,
+   "state": "PENDING",
+   "t_decl": "2026-10-24T21:15:21.821737+00:00",
+   "t0": "2026-10-24T21:15:21.821737+00:00",
+   "not_before": "2026-10-24T21:30:00+00:00",
+   "expires": "2026-10-25T01:15:21.821737+00:00",
+   "source": "binance:BTCUSDT",
+   "engine_version": "paper-v2",
+   "strategy_version": "reviewed_core",
+   "cost_bps": 14.0,
+   "zone": null,
+   "ambiguous": false
+  }
+ },
  "watch": {
   "NDX:E": {
    "side": -1,
@@ -12,23 +47,23 @@
    "fingerprint": "b684d2c8659a",
    "zone_p": 28970.176171875
   },
-  "BTC": {
+  "SOL": {
    "side": -1,
-   "ts": "2026-10-24T16:06:57.890198+00:00",
+   "ts": "2026-10-24T21:15:21.821737+00:00",
    "fingerprint": "bfbf73a3c19d",
    "zone_p": null
-  },
-  "SOL": {
-   "side": 1,
-   "ts": "2026-10-24T20:18:25.175804+00:00",
-   "fingerprint": "f2eaa8be0ec4",
-   "zone_p": 101.46
   },
   "GOLD": {
    "side": -1,
    "ts": "2026-10-24T20:00:11.693428+00:00",
    "fingerprint": "a9c314865bc0",
    "zone_p": 3993.7992983333334
+  },
+  "ETH": {
+   "side": -1,
+   "ts": "2026-10-24T21:15:21.821737+00:00",
+   "fingerprint": "60734b7b2d4d",
+   "zone_p": null
   }
  },
  "cool": {
@@ -510,7 +545,7 @@
    "exit_price": 100.58914285714285
   }
  ],
- "n": 27,
+ "n": 28,
  "last_report": "2026-10-16T21:08:50.332805+00:00",
  "news": {
   "cal": [],
@@ -539,10 +574,10 @@
  },
  "outbox": [],
  "last_analysis": {
-  "BTC": "2026-10-24T20:45:00+00:00",
-  "ETH": "2026-10-24T20:45:00+00:00",
-  "SOL": "2026-10-24T20:45:00+00:00",
-  "GOLD": "2026-10-24T20:45:00+00:00",
+  "BTC": "2026-10-24T21:15:00+00:00",
+  "ETH": "2026-10-24T21:15:00+00:00",
+  "SOL": "2026-10-24T21:15:00+00:00",
+  "GOLD": "2026-10-24T21:15:00+00:00",
   "NDX": "2026-10-23T20:00:00+00:00"
  },
  "event_ids": [
@@ -855,12 +890,15 @@
   "4b7865a7-23ee-41b7-aae5-a428ec73227c",
   "286bdd62-8e81-4a68-92f1-11e8e46477cd",
   "de05fa44-d79e-4041-9ed5-75319db0706e",
-  "a980bdb1-1d2f-4c34-a6ad-c6e801d97571"
+  "a980bdb1-1d2f-4c34-a6ad-c6e801d97571",
+  "BTC-028:setup",
+  "ce5b802b-cae0-45fb-8a3a-7a239b59ad84",
+  "b18c0da3-11ba-4002-83cd-51bf2853a361"
  ],
  "last_decision": {
-  "BTC": "BTC: B score=6.0",
-  "ETH": "ETH: NONE score=5.0",
-  "SOL": "SOL: NONE score=5.5",
+  "BTC": "BTC: PENDING score=9.0 | BTC-028",
+  "ETH": "ETH: B score=6.5",
+  "SOL": "SOL: B score=6.0",
   "GOLD": "GOLD: B score=5.0",
   "NDX": "NDX: B score=7.5"
  },
