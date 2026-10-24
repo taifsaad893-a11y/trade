@@ -2,450 +2,1200 @@ import math
 import os
 import pandas as pd
 
-from simple_zones import analyze_zones, build_plan, utc
+
+# =========================================================
+# STRATEGY CONFIG
+# Trend Continuation + Breakout / Retest
+# =========================================================
+
+STRATEGY_VERSION = "trend_breakout_retest_v1"
+
+# Breakout must close beyond the level by this ATR amount.
+BREAK_BUFFER_ATR = 0.05
+
+# Strong breakout requirements for direct A setup.
+STRONG_VOLUME_RATIO = 1.25
+STRONG_BODY_ATR = 0.55
+
+# Don't chase an already extended breakout.
+MAX_DIRECT_EXTENSION_ATR = 0.70
+
+# Retest zone around the broken level.
+RETEST_TOUCH_ATR = 0.20
+
+# Retest candle must close back in trend direction.
+RETEST_CLOSE_ATR = 0.02
+
+# How close price can be before breakout to send a B watch.
+WATCH_DISTANCE_ATR = 0.35
+
+# Stop buffer behind structure.
+STOP_BUFFER_ATR = 0.20
+
+# Minimum quality scores.
+A_MIN_SCORE = 7.0
+B_MIN_SCORE = 5.5
+
+# Minimum R:R to TP2.
+MIN_TP2_RR = 2.0
 
 
-def confirmation_level(d, side):
-    x = d.tail(24)
-    o = x["o"].to_numpy()
-    c = x["c"].to_numpy()
+# =========================================================
+# HELPERS
+# =========================================================
 
-    def opposite(i):
-        return c[i] < o[i] if side == 1 else c[i] > o[i]
+def utc(value):
+    t = pd.Timestamp(value)
 
-    for end in range(len(x) - 1, max(-1, len(x) - 9), -1):
-        if not opposite(end):
-            continue
+    if t.tzinfo is None:
+        return t.tz_localize("UTC")
 
-        start = end
-        while start > 0 and opposite(start - 1):
-            start -= 1
+    return t.tz_convert("UTC")
 
-        if end - start + 1 >= 2:
-            return float(o[start])
+
+def volume_ratio(d):
+    """
+    Current closed 15m candle volume vs previous 20 candles.
+
+    Volume is a quality bonus, not a mandatory condition
+    except for direct strong-breakout entry.
+    """
+
+    if len(d) < 22:
+        return None
+
+    v = d["v"].astype(float)
+
+    previous = float(
+        v.iloc[-21:-1].mean()
+    )
+
+    if (
+        not math.isfinite(previous)
+        or previous <= 0
+    ):
+        return None
+
+    current = float(v.iloc[-1])
+
+    return current / previous
+
+
+def direction_name(side):
+    return "LONG" if side == 1 else "SHORT"
+
+
+# =========================================================
+# COST CHECK
+# =========================================================
+
+def cost_reason(key, plan):
+    bps = float(
+        os.environ.get(
+            "ROUNDTRIP_COST_BPS_" + key,
+            os.environ.get(
+                "ROUNDTRIP_COST_BPS",
+                "14",
+            ),
+        )
+    )
+
+    if (
+        not math.isfinite(bps)
+        or bps < 0
+    ):
+        raise ValueError(
+            "invalid cost assumption"
+        )
+
+    risk = abs(
+        plan["entry"]
+        - plan["stop"]
+    )
+
+    if risk <= 0:
+        return "مسافة الوقف غير صالحة"
+
+    cost = (
+        plan["entry"]
+        * bps
+        / 10000
+        / risk
+    )
+
+    if cost > 0.35:
+        return (
+            f"الكلفة {cost:.2f}R "
+            "تتجاوز 0.35R"
+        )
 
     return None
 
 
-def terminal(st, key, p, price, reason):
-    st["confirmation_setups"].pop(key, None)
+# =========================================================
+# RESULT TEMPLATE
+# =========================================================
 
+def base_result(
+    key,
+    side,
+    price,
+    score,
+    style,
+    obs,
+):
     return {
         "key": key,
-        "side": p["side"],
-        "price": price,
-        "score": 0.0,
-        "style": "SimpleZones",
+        "side": side,
+        "price": float(price),
+        "score": round(
+            float(score),
+            1,
+        ),
+        "style": style,
         "tf": "15m",
         "tier": None,
         "ext": 0.0,
-        "obs": reason,
-        "miss": [reason],
-        "strategy_version": "sequence_v1",
-        "_sequence_notice": (
-            f"⚠️ {key} | الإعداد {p['id']}\n{reason}"
-        ),
-    }
-
-
-def waiting(p, price):
-    side = p["side"]
-    direction = "فوق" if side == 1 else "تحت"
-    invalid_direction = "تحت" if side == 1 else "فوق"
-
-    return {
-        "key": p["key"],
-        "side": side,
-        "price": price,
-        "score": p["score"],
-        "style": "SimpleZones",
-        "tf": "15m",
-        "tier": "B",
-        "ext": 0.0,
-        "zone_p": p["zone"]["p"],
-        "a1": p["a1"],
         "miss": [],
-        "strategy_version": "sequence_v1",
-        "cond": (
-            f"إغلاق شمعة 15m جديدة {direction} "
-            f"{p['trigger']:,.2f}؛ لا يشترط ريتست بعدها. "
-            "عند التأكيد: ترند الساعة موافق، وقف ضمن الحدود، "
-            "الهدف الثاني 2R على الأقل، والكلفة حتى 0.35R."
-        ),
-        "inv": (
-            f"إغلاق {invalid_direction} {p['invalid']:,.2f}"
-            " أو انتهاء ساعتين من إعلان الإعداد"
-        ),
-        "obs": (
-            p["obs"]
-            + f"\nالإعداد المحفوظ: {p['id']}"
-            + "\nالمنطقة ومستوى التأكيد ثابتان لهذا الإعداد."
-            + "\nالفوليوم للسياق فقط."
+        "obs": obs,
+        "strategy_version": (
+            STRATEGY_VERSION
         ),
     }
 
 
-def breakout_plan(key, side, price, level, d, a15, a1, levels):
-    minimum = {
-        "BTC": 0.004,
-        "ETH": 0.004,
-        "SOL": 0.005,
-        "GOLD": 0.0025,
-        "NDX": 0.003,
-    }
+# =========================================================
+# TARGET / STOP PLAN
+# =========================================================
 
-    recent = d.tail(2)
-    half = 0.25 * a1
+def build_trade_plan(
+    a,
+    key,
+    fr,
+    side,
+    entry,
+    level,
+    a15,
+    a1,
+    mode,
+):
+    """
+    Build simple structure + ATR plan.
+
+    TP1 = 1R
+    TP2 = 2R
+    TP3 = 3R
+
+    We also check whether a strong observed 1H level
+    blocks the path before TP2.
+    """
+
+    d = fr["15m"]
+
+    last = d.iloc[-1]
+
+    entry = float(entry)
+    level = float(level)
+
+    # =====================================================
+    # STOP
+    # =====================================================
 
     if side == 1:
-        stop = min(
-            level - half, float(recent["l"].min())
-        ) - 0.2 * a15
-    else:
-        stop = max(
-            level + half, float(recent["h"].max())
-        ) + 0.2 * a15
 
-    risk = (price - stop) * side
+        if mode == "RETEST":
+
+            stop = min(
+                float(last["l"])
+                - 0.05 * a15,
+
+                level
+                - STOP_BUFFER_ATR
+                * a15,
+            )
+
+        else:
+
+            stop = min(
+                level
+                - STOP_BUFFER_ATR
+                * a15,
+
+                float(last["l"])
+                - 0.10
+                * a15,
+            )
+
+        risk = entry - stop
+
+    else:
+
+        if mode == "RETEST":
+
+            stop = max(
+                float(last["h"])
+                + 0.05 * a15,
+
+                level
+                + STOP_BUFFER_ATR
+                * a15,
+            )
+
+        else:
+
+            stop = max(
+                level
+                + STOP_BUFFER_ATR
+                * a15,
+
+                float(last["h"])
+                + 0.10
+                * a15,
+            )
+
+        risk = stop - entry
+
+    # =====================================================
+    # VALIDATE RISK
+    # =====================================================
 
     if (
         not math.isfinite(risk)
         or risk <= 0
-        or risk > 3 * a1
-        or risk < minimum[key] * price
     ):
-        return None, "مسافة الوقف خارج الحدود المعتمدة"
-
-    blocked = any(
-        z["w"] >= 4
-        and abs(z["p"] - level) > 1e-9
-        and 0.2 * risk <= (z["p"] - price) * side < 0.8 * risk
-        for z in levels
-    )
-
-    if blocked:
-        return None, "مستوى قوي قريب يعترض الدخول"
-
-    ahead = sorted(
-        (z["p"] - price) * side
-        for z in levels
-        if abs(z["p"] - level) > 1e-9
-        and (z["p"] - price) * side > 0
-    )
-
-    distances = []
-
-    for distance in ahead:
-        if (
-            0.8 * risk <= distance <= 4 * risk
-            and (
-                not distances
-                or distance - distances[-1] >= 0.5 * risk
-            )
-        ):
-            distances.append(distance)
-
-        if len(distances) == 3:
-            break
-
-    arithmetic = len(distances) < 3
-
-    while len(distances) < 3:
-        previous = distances[-1] if distances else 0
-        distances.append(previous + risk)
-
-    if distances[1] / risk < 2:
-        return None, "الهدف الثاني لا يوفر 2R"
-
-    return {
-        "entry": price,
-        "stop": stop,
-        "tps": [price + side * v for v in distances],
-        "rr": distances[1] / risk,
-        "arithmetic_extensions": arithmetic,
-    }, None
-
-
-def cost_reason(key, plan):
-    bps = float(os.environ.get(
-        "ROUNDTRIP_COST_BPS_" + key,
-        os.environ.get("ROUNDTRIP_COST_BPS", "14"),
-    ))
-
-    if not math.isfinite(bps) or bps < 0:
-        raise ValueError("invalid cost assumption")
-
-    risk = abs(plan["entry"] - plan["stop"])
-    cost = plan["entry"] * bps / 10000 / risk
-
-    if cost > 0.35:
-        return f"الكلفة {cost:.2f}R تتجاوز 0.35R"
-
-    return None
-
-
-def breakout(a, key, fr):
-    d = fr["15m"]
-
-    if len(d) < 120 or len(fr["1h"]) < 60:
-        return None
-
-    price = float(d["c"].iloc[-1])
-    previous = float(d["c"].iloc[-2])
-
-    # نستبعد شمعة الإشارة من نطاق الكسر.
-    high = float(d["h"].iloc[-21:-1].max())
-    low = float(d["l"].iloc[-21:-1].min())
-
-    a15 = float(a.atr(d).iloc[-1])
-    a1 = float(a.atr(fr["1h"]).iloc[-1])
-
-    if not all(math.isfinite(v) and v > 0 for v in (a15, a1)):
-        return None
-
-    if previous <= high and price > high + 0.1 * a15:
-        side, level = 1, high
-    elif previous >= low and price < low - 0.1 * a15:
-        side, level = -1, low
-    else:
-        return None
-
-    res = {
-        "key": key,
-        "side": side,
-        "price": price,
-        "score": 5.0,
-        "style": "Breakout",
-        "tf": "15m",
-        "tier": "B",
-        "ext": abs(price - level) / a15,
-        "zone_p": level,
-        "a1": a1,
-        "miss": [],
-        "strategy_version": "sequence_v1",
-        "inv": (
-            ("إغلاق تحت " if side == 1 else "إغلاق فوق ")
-            + f"{level:,.2f}"
-        ),
-        "obs": (
-            "بريك أوت بإغلاق 15m خارج نطاق 20 شمعة سابقة."
-            "\nلا يشترط CISD أو ريتست أو فوليوم."
-            "\nالسكور تصنيف للقواعد وليس احتمال نجاح."
-            "\nالأهداف من مستويات السعر، وتُستكمل "
-            "بامتدادات حسابية عند الحاجة."
-        ),
-    }
-
-    reason = None
-    plan = None
-
-    if a.trend(fr["1h"]) != side:
-        reason = "ترند الساعة غير موافق لاتجاه البريك أوت"
-    elif abs(price - level) > a15:
-        reason = "شمعة الكسر ابتعدت أكثر من ATR 15m؛ لا مطاردة"
-
-    if reason is None:
-        levels = a.sr_multi(fr, 0.35 * a1)
-        plan, reason = breakout_plan(
-            key, side, price, level, d, a15, a1, levels
+        return (
+            None,
+            "مسافة الوقف غير صالحة",
         )
 
-    if plan and reason is None:
-        reason = cost_reason(key, plan)
+    # Avoid unrealistically tiny stop.
+    if risk < 0.20 * a15:
+        return (
+            None,
+            "الوقف قريب جداً",
+        )
+
+    # Avoid excessively wide stop.
+    if risk > 2.5 * a1:
+        return (
+            None,
+            "الوقف واسع جداً",
+        )
+
+    # =====================================================
+    # TARGETS
+    # =====================================================
+
+    tp1 = (
+        entry
+        + side
+        * risk
+    )
+
+    tp2 = (
+        entry
+        + side
+        * risk
+        * 2.0
+    )
+
+    tp3 = (
+        entry
+        + side
+        * risk
+        * 3.0
+    )
+
+    # =====================================================
+    # CHECK STRONG LEVEL BEFORE TP2
+    # =====================================================
+
+    try:
+
+        levels = a.sr_multi(
+            fr,
+            0.35 * a1,
+        )
+
+    except Exception:
+        levels = []
+
+    blocked = False
+
+    for zone in levels:
+
+        try:
+            p = float(
+                zone["p"]
+            )
+
+            w = int(
+                zone.get(
+                    "w",
+                    0,
+                )
+            )
+
+        except Exception:
+            continue
+
+        # Ignore the breakout level itself.
+        if abs(
+            p - level
+        ) <= 0.10 * a15:
+            continue
+
+        distance = (
+            p - entry
+        ) * side
+
+        # Strong level before TP2.
+        if (
+            w >= 4
+            and 0 < distance < 2.0 * risk
+        ):
+            blocked = True
+            break
+
+    if blocked:
+        return (
+            None,
+            "مستوى قوي يعترض الطريق قبل TP2",
+        )
+
+    plan = {
+        "entry": float(entry),
+        "stop": float(stop),
+
+        "tps": [
+            float(tp1),
+            float(tp2),
+            float(tp3),
+        ],
+
+        "rr": 2.0,
+
+        "arithmetic_extensions": True,
+    }
+
+    reason = cost_reason(
+        key,
+        plan,
+    )
 
     if reason:
-        res["cond"] = "لا دخول بهذا الكسر: " + reason
-        res["miss"] = [reason]
-        res["obs"] += "\nسبب عدم الدخول: " + reason
+        return None, reason
+
+    return plan, None
+
+
+# =========================================================
+# TREND BREAKOUT / RETEST ANALYSIS
+# =========================================================
+
+def analyze_trend_breakout(
+    a,
+    key,
+    fr,
+    btc_dir,
+):
+    d15 = fr["15m"]
+    d1 = fr["1h"]
+    d4 = fr["4h"]
+
+    # =====================================================
+    # DATA CHECK
+    # =====================================================
+
+    if (
+        len(d15) < 60
+        or len(d1) < 60
+        or len(d4) < 25
+    ):
+
+        price = (
+            float(d15["c"].iloc[-1])
+            if len(d15)
+            else 0.0
+        )
+
+        return base_result(
+            key,
+            1,
+            price,
+            0.0,
+            "TrendBreakout",
+            "بيانات غير كافية للتحليل.",
+        )
+
+    last = d15.iloc[-1]
+    prev = d15.iloc[-2]
+
+    price = float(
+        last["c"]
+    )
+
+    # =====================================================
+    # ATR
+    # =====================================================
+
+    a15 = float(
+        a.atr(d15).iloc[-1]
+    )
+
+    a1 = float(
+        a.atr(d1).iloc[-1]
+    )
+
+    if not all(
+        math.isfinite(x)
+        and x > 0
+        for x in (
+            a15,
+            a1,
+        )
+    ):
+
+        return base_result(
+            key,
+            1,
+            price,
+            0.0,
+            "TrendBreakout",
+            "تعذر حساب ATR.",
+        )
+
+    # =====================================================
+    # 1H = MAIN DIRECTION
+    # =====================================================
+
+    trend_1h = a.trend(
+        d1
+    )
+
+    trend_4h = a.trend(
+        d4
+    )
+
+    # No trade while 1H is range.
+    if trend_1h == 0:
+
+        return base_result(
+            key,
+            (
+                trend_4h
+                if trend_4h != 0
+                else 1
+            ),
+            price,
+            0.0,
+            "TrendBreakout",
+            (
+                "Trend Continuation\n"
+                "1H: RANGE\n"
+                "الحالة: لا دخول حالياً؛ "
+                "ننتظر اتجاه واضح على الساعة."
+            ),
+        )
+
+    side = trend_1h
+
+    # =====================================================
+    # FIXED 15M BREAKOUT LEVEL
+    # =====================================================
+
+    # We exclude current + previous candle.
+    # This lets the previous candle be the breakout
+    # and current candle be the retest.
+    base = d15.iloc[-22:-2]
+
+    if len(base) < 15:
+
+        return base_result(
+            key,
+            side,
+            price,
+            0.0,
+            "TrendBreakout",
+            "بيانات 15m غير كافية.",
+        )
+
+    high = float(
+        base["h"].max()
+    )
+
+    low = float(
+        base["l"].min()
+    )
+
+    level = (
+        high
+        if side == 1
+        else low
+    )
+
+    break_buffer = (
+        BREAK_BUFFER_ATR
+        * a15
+    )
+
+    touch_buffer = (
+        RETEST_TOUCH_ATR
+        * a15
+    )
+
+    close_buffer = (
+        RETEST_CLOSE_ATR
+        * a15
+    )
+
+    previous_close = float(
+        prev["c"]
+    )
+
+    previous_open = float(
+        prev["o"]
+    )
+
+    last_open = float(
+        last["o"]
+    )
+
+    last_high = float(
+        last["h"]
+    )
+
+    last_low = float(
+        last["l"]
+    )
+
+    # =====================================================
+    # LONG CONDITIONS
+    # =====================================================
+
+    if side == 1:
+
+        previous_broke = (
+            previous_close
+            > high
+            + break_buffer
+        )
+
+        fresh_breakout = (
+            price
+            > high
+            + break_buffer
+            and previous_close
+            <= high
+            + break_buffer
+        )
+
+        clean_retest = (
+            previous_broke
+            and last_low
+            <= high
+            + touch_buffer
+            and price
+            >= high
+            + close_buffer
+        )
+
+        approaching = (
+            0
+            <= high - price
+            <= WATCH_DISTANCE_ATR
+            * a15
+        )
+
+        extension = max(
+            0.0,
+            (
+                price
+                - high
+            )
+            / a15,
+        )
+
+    # =====================================================
+    # SHORT CONDITIONS
+    # =====================================================
+
     else:
-        res.update(tier="A", plan=plan, score=7.5)
+
+        previous_broke = (
+            previous_close
+            < low
+            - break_buffer
+        )
+
+        fresh_breakout = (
+            price
+            < low
+            - break_buffer
+            and previous_close
+            >= low
+            - break_buffer
+        )
+
+        clean_retest = (
+            previous_broke
+            and last_high
+            >= low
+            - touch_buffer
+            and price
+            <= low
+            - close_buffer
+        )
+
+        approaching = (
+            0
+            <= price - low
+            <= WATCH_DISTANCE_ATR
+            * a15
+        )
+
+        extension = max(
+            0.0,
+            (
+                low
+                - price
+            )
+            / a15,
+        )
+
+    # =====================================================
+    # 15M EMA CONTEXT
+    # =====================================================
+
+    ema20 = float(
+        a.ema(
+            d15["c"],
+            20,
+        ).iloc[-1]
+    )
+
+    ema50 = float(
+        a.ema(
+            d15["c"],
+            50,
+        ).iloc[-1]
+    )
+
+    if side == 1:
+
+        ema_ok = (
+            price
+            > ema20
+            > ema50
+        )
+
+    else:
+
+        ema_ok = (
+            price
+            < ema20
+            < ema50
+        )
+
+    # =====================================================
+    # VOLUME
+    # =====================================================
+
+    vr = volume_ratio(
+        d15
+    )
+
+    strong_volume = (
+        vr is not None
+        and vr
+        >= STRONG_VOLUME_RATIO
+    )
+
+    # =====================================================
+    # CANDLE MOMENTUM
+    # =====================================================
+
+    body = abs(
+        price
+        - last_open
+    )
+
+    body_atr = (
+        body
+        / a15
+    )
+
+    strong_body = (
+        body_atr
+        >= STRONG_BODY_ATR
+    )
+
+    # Direct breakout requires BOTH:
+    # clear body + clear volume.
+    strong_breakout = (
+        fresh_breakout
+        and strong_volume
+        and strong_body
+    )
+
+    # =====================================================
+    # SCORE
+    # =====================================================
+
+    # 1H trend exists.
+    score = 3.0
+
+    # 4H is context only.
+    if trend_4h == side:
+        score += 1.0
+
+    elif trend_4h == -side:
+        score -= 0.5
+
+    # Setup quality.
+    if clean_retest:
+        score += 3.0
+
+    elif fresh_breakout:
+        score += 2.5
+
+    elif previous_broke:
+        score += 1.5
+
+    elif approaching:
+        score += 1.0
+
+    # 15m EMA bonus.
+    if ema_ok:
+        score += 1.0
+
+    # Volume bonus.
+    if vr is not None:
+
+        if vr >= 1.50:
+            score += 1.0
+
+        elif vr >= 1.00:
+            score += 0.5
+
+        elif vr < 0.65:
+            score -= 0.5
+
+    # Candle momentum bonus.
+    if strong_body:
+        score += 0.5
+
+    # BTC context for ETH/SOL only.
+    # Bonus / penalty, NOT mandatory.
+    if (
+        key in ("ETH", "SOL")
+        and btc_dir is not None
+    ):
+
+        if btc_dir == side:
+            score += 0.5
+
+        elif btc_dir == -side:
+            score -= 0.5
+
+    score = round(
+        max(
+            0.0,
+            min(
+                10.0,
+                score,
+            ),
+        ),
+        1,
+    )
+
+    # =====================================================
+    # OBSERVATION TEXT
+    # =====================================================
+
+    if clean_retest:
+        setup_name = (
+            "Clean Retest"
+        )
+
+    elif fresh_breakout:
+        setup_name = (
+            "Fresh Breakout"
+        )
+
+    elif previous_broke:
+        setup_name = (
+            "Breakout — waiting retest"
+        )
+
+    elif approaching:
+        setup_name = (
+            "Approaching Breakout"
+        )
+
+    else:
+        setup_name = (
+            "No valid setup"
+        )
+
+    volume_text = (
+        "غير متوفر"
+        if vr is None
+        else f"{vr:.2f}x"
+    )
+
+    obs = (
+        "Trend Continuation + Breakout/Retest\n"
+        f"الاتجاه: {direction_name(side)}\n"
+        f"1H: {'BULLISH' if trend_1h == 1 else 'BEARISH'}"
+        f" | 4H: "
+        f"{'BULLISH' if trend_4h == 1 else ('BEARISH' if trend_4h == -1 else 'RANGE')}\n"
+        f"15m: {setup_name}\n"
+        f"المستوى: {level:,.2f}\n"
+        f"EMA20/50: "
+        f"{'متوافق' if ema_ok else 'غير متوافق'}\n"
+        f"الفوليوم: {volume_text}\n"
+        f"جسم الشمعة: {body_atr:.2f} ATR\n"
+        f"الامتداد: {extension:.2f} ATR\n"
+        "4H والفوليوم وEMA عوامل جودة؛ "
+        "مو مجموعة شروط إجبارية."
+    )
+
+    res = base_result(
+        key,
+        side,
+        price,
+        score,
+        "TrendBreakout",
+        obs,
+    )
+
+    res.update(
+        ext=round(
+            extension,
+            2,
+        ),
+        zone_p=level,
+        a1=a1,
+    )
+
+    # =====================================================
+    # 1. CLEAN RETEST -> A
+    # =====================================================
+
+    if (
+        clean_retest
+        and score >= A_MIN_SCORE
+    ):
+
+        plan, reason = (
+            build_trade_plan(
+                a,
+                key,
+                fr,
+                side,
+                price,
+                level,
+                a15,
+                a1,
+                "RETEST",
+            )
+        )
+
+        if (
+            plan
+            and reason is None
+        ):
+
+            res.update(
+                tier="A",
+                style="TrendRetest",
+                plan=plan,
+            )
+
+            res["obs"] += (
+                "\n✅ ريتست نظيف للمستوى "
+                "المكسور وتأكيد باتجاه الترند."
+            )
+
+            return res
+
+        if reason:
+            res["miss"] = [
+                reason
+            ]
+
+            res["obs"] += (
+                "\nسبب عدم الدخول: "
+                + reason
+            )
+
+    # =====================================================
+    # 2. STRONG FRESH BREAKOUT -> A
+    # =====================================================
+
+    if (
+        strong_breakout
+        and extension
+        <= MAX_DIRECT_EXTENSION_ATR
+        and score >= A_MIN_SCORE
+    ):
+
+        plan, reason = (
+            build_trade_plan(
+                a,
+                key,
+                fr,
+                side,
+                price,
+                level,
+                a15,
+                a1,
+                "BREAKOUT",
+            )
+        )
+
+        if (
+            plan
+            and reason is None
+        ):
+
+            res.update(
+                tier="A",
+                style="TrendBreakout",
+                plan=plan,
+            )
+
+            res["obs"] += (
+                "\n✅ بريك أوت قوي: "
+                "Momentum + Volume واضحين؛ "
+                "دخول بدون انتظار ريتست."
+            )
+
+            return res
+
+        if reason:
+            res["miss"] = [
+                reason
+            ]
+
+            res["obs"] += (
+                "\nسبب عدم الدخول: "
+                + reason
+            )
+
+    # =====================================================
+    # 3. BREAKOUT -> ARMED RETEST
+    # =====================================================
+
+    if (
+        fresh_breakout
+        or previous_broke
+    ):
+
+        # If it ran too far, do not chase.
+        if (
+            extension
+            > MAX_DIRECT_EXTENSION_ATR
+        ):
+
+            res["obs"] += (
+                "\n⚠️ السعر ابتعد عن مستوى الكسر؛ "
+                "ممنوع المطاردة. ننتظر ريتست."
+            )
+
+        plan, reason = (
+            build_trade_plan(
+                a,
+                key,
+                fr,
+                side,
+                level,
+                level,
+                a15,
+                a1,
+                "RETEST",
+            )
+        )
+
+        if (
+            plan
+            and reason is None
+            and score >= B_MIN_SCORE
+        ):
+
+            res.update(
+                tier="ARMED",
+                style="TrendBreakRetest",
+                plan=plan,
+
+                zone=[
+                    float(
+                        level
+                        - RETEST_TOUCH_ATR
+                        * a15
+                    ),
+                    float(
+                        level
+                        + RETEST_TOUCH_ATR
+                        * a15
+                    ),
+                ],
+            )
+
+            res["obs"] += (
+                "\n🟠 الكسر صالح، لكن ما نطارد السعر؛ "
+                "الدخول فقط إذا رجع للمستوى."
+            )
+
+            return res
+
+        if reason:
+
+            res["miss"] = [
+                reason
+            ]
+
+            res["obs"] += (
+                "\nسبب عدم تسليح الريتست: "
+                + reason
+            )
+
+    # =====================================================
+    # 4. EARLY WATCH
+    # =====================================================
+
+    if (
+        approaching
+        and score >= B_MIN_SCORE
+    ):
+
+        if side == 1:
+
+            trigger = (
+                level
+                + break_buffer
+            )
+
+            res["cond"] = (
+                f"إغلاق 15m فوق "
+                f"{trigger:,.2f}. "
+                "إذا الكسر قوي بفوليوم ومومنتوم "
+                "واضحين ممكن دخول مباشر؛ "
+                "وإلا ننتظر Retest."
+            )
+
+            res["inv"] = (
+                "فقدان اتجاه 1H الصاعد "
+                "أو تحول الساعة إلى Range."
+            )
+
+        else:
+
+            trigger = (
+                level
+                - break_buffer
+            )
+
+            res["cond"] = (
+                f"إغلاق 15m تحت "
+                f"{trigger:,.2f}. "
+                "إذا الكسر قوي بفوليوم ومومنتوم "
+                "واضحين ممكن دخول مباشر؛ "
+                "وإلا ننتظر Retest."
+            )
+
+            res["inv"] = (
+                "فقدان اتجاه 1H الهابط "
+                "أو تحول الساعة إلى Range."
+            )
+
+        res.update(
+            tier="B",
+            style="TrendWatch",
+        )
+
+        return res
+
+    # =====================================================
+    # NO SETUP
+    # =====================================================
+
+    if not res["miss"]:
+
+        if trend_1h == side:
+
+            res["miss"] = [
+                "لا يوجد Breakout أو Retest مؤهل حالياً"
+            ]
 
     return res
 
 
-def analyze_sequence(a, st, key, fr, btc_dir):
-    br = breakout(a, key, fr)
+# =========================================================
+# MAIN ENTRY POINT USED BY scanner.py
+# =========================================================
 
-    if getattr(a, "SPOT_ONLY", False) and br:
-        if br["side"] == -1:
-            br = None
+def analyze_sequence(
+    a,
+    st,
+    key,
+    fr,
+    btc_dir,
+):
+    """
+    This is the function scanner.py calls.
 
-    # البريك أوت مسار إضافي للكريبتو.
-    if key not in ("GOLD", "NDX"):
-        return br if br else a.analyze(key, fr, btc_dir)
+    Every asset now uses the SAME first-agent strategy:
 
-    pending = st.setdefault("confirmation_setups", {})
-    d = fr["15m"]
+        1H trend
+             ↓
+        15m breakout
+             ↓
+        strong breakout -> A
+             OR
+        normal breakout -> ARMED retest
+             ↓
+        clean retest -> A
 
-    close = utc(d["end"].iloc[-1])
-    price = float(d["c"].iloc[-1])
-    now = utc(fr.get(
-        "_decision_at", pd.Timestamp.now(tz="UTC")
-    ))
-    p = pending.get(key)
+    No SimpleZones / CISD / FVG / ICT requirement.
+    """
 
-    # البريك أوت الصالح لا ينتظر إعداد المنطقة.
-    if br and (br["tier"] == "A" or p is None):
-        if br["tier"] == "A":
-            pending.pop(key, None)
-        return br
+    # Old confirmation setups belong to the previous strategy.
+    # Clear them so they cannot interfere with the new logic.
+    st.setdefault(
+        "confirmation_setups",
+        {}
+    ).pop(
+        key,
+        None,
+    )
 
-    if p:
-        if now > utc(p["expires"]):
-            return terminal(
-                st, key, p, price,
-                "انتهى الإعداد بعد ساعتين بدون دخول",
-            )
+    res = analyze_trend_breakout(
+        a,
+        key,
+        fr,
+        btc_dir,
+    )
 
-        fresh = d[d["end"].map(utc) > utc(p["created"])]
-
-        if len(fresh):
-            broken = (
-                fresh["c"] <= p["invalid"]
-                if p["side"] == 1
-                else fresh["c"] >= p["invalid"]
-            )
-
-            if bool(broken.any()):
-                return terminal(
-                    st, key, p, price,
-                    "إغلاق شمعة تجاوز حد إلغاء المنطقة",
-                )
-
-        if close <= utc(p["created"]):
-            return waiting(p, price)
-
-        confirmed = (
-            price > p["trigger"]
-            if p["side"] == 1
-            else price < p["trigger"]
+    # Respect spot-only mode if enabled.
+    if (
+        getattr(
+            a,
+            "SPOT_ONLY",
+            False,
         )
+        and res["side"] == -1
+    ):
 
-        if not confirmed:
-            return waiting(p, price)
-
-        reason = None
-        plan = None
-
-        if a.trend(fr["1h"]) != p["side"]:
-            reason = (
-                "تحقق الإغلاق، لكن ترند الساعة "
-                "لم يعد موافقاً للاتجاه"
-            )
-        elif abs(price - p["zone"]["p"]) > 1.5 * p["a1"]:
-            reason = (
-                "تحقق الإغلاق، لكن السعر ابتعد "
-                "أكثر من 1.5 ATR ساعة عن المنطقة"
-            )
-
-        if reason is None:
-            initial = pd.DataFrame(p["bars"])
-            plan, reason = build_plan(
-                key, p["side"], price, p["zone"],
-                p["touch"], initial,
-                p["a15"], p["a1"], p["levels"],
-            )
-
-        if plan and reason is None:
-            reason = cost_reason(key, plan)
-
-        if reason:
-            return terminal(
-                st, key, p, price,
-                "لم يُفتح دخول ورقي: " + reason,
-            )
-
-        res = waiting(p, price)
-        res.update(
-            tier="A",
-            plan=plan,
-            score=min(10.0, p["score"] + 2.5),
-        )
-        res["obs"] += (
-            "\n✅ تحقق شرط الإعداد المحفوظ؛ "
-            "لا ريتست إضافي."
-        )
-        pending.pop(key, None)
-        return res
-
-    res = analyze_zones(key, fr, vars(a))
-
-    if getattr(a, "SPOT_ONLY", False) and res["side"] == -1:
         res["tier"] = None
-        return res
 
-    if res["tier"] != "B":
-        return res
+        res["miss"] = [
+            "SHORT disabled by SPOT_ONLY"
+        ]
 
-    side = res["side"]
-    trigger = confirmation_level(d, side)
-
-    if trigger is None:
-        res["cond"] = (
-            "تكوّن سلسلة من شمعتين معاكستين "
-            "لتحديد مستوى CISD؛ "
-            "لا يوجد مستوى تأكيد محفوظ بعد"
+        res["obs"] += (
+            "\nSHORT ملغي لأن SPOT_ONLY مفعّل."
         )
-        return res
 
-    fulfilled = (
-        price > trigger if side == 1 else price < trigger
-    )
-
-    if fulfilled:
-        res["cond"] = (
-            "التأكيد السعري تحقق بالفعل؛ "
-            + " | ".join(
-                res.get("miss")
-                or ["الخطة لم تستوفِ شروط الدخول"]
-            )
-        )
-        return res
-
-    a1 = float(res["a1"])
-    a15 = float(a.atr(d).iloc[-1])
-    z = {"p": float(res["zone_p"]), "w": 3}
-    x = d.tail(8)
-
-    touches = (
-        (x["l"] <= z["p"] + 0.25 * a1)
-        & (x["h"] >= z["p"] - 0.25 * a1)
-    )
-    positions = [
-        i for i, touched in enumerate(touches) if touched
-    ]
-
-    if not positions:
-        return res
-
-    levels = [
-        {"p": float(v["p"]), "w": int(v["w"])}
-        for v in a.sr_multi(fr, 0.35 * a1)
-    ]
-
-    p = {
-        "id": key + "-" + close.strftime("%Y%m%d%H%M"),
-        "key": key,
-        "side": side,
-        "created": close.isoformat(),
-        "expires": (
-            now + pd.Timedelta(hours=2)
-        ).isoformat(),
-        "trigger": trigger,
-        "invalid": z["p"] - side * 0.25 * a1,
-        "zone": z,
-        "a1": a1,
-        "a15": a15,
-        "touch": positions[-1],
-        "levels": levels,
-        "bars": (
-            x[["o", "h", "l", "c"]]
-            .astype(float)
-            .to_dict("records")
-        ),
-        "obs": res["obs"],
-        "score": float(res["score"]),
-    }
-
-    pending[key] = p
-    return waiting(p, price)
+    return res
