@@ -495,7 +495,38 @@
  "n": 28,
  "last_report": "2026-10-16T21:08:50.332805+00:00",
  "news": {
-  "cal": [],
+  "cal": [
+   {
+    "t": "2026-10-28T18:00:00+00:00",
+    "title": "Federal Funds Rate",
+    "fc": "4.00%",
+    "prev": "4.00%"
+   },
+   {
+    "t": "2026-10-28T18:00:00+00:00",
+    "title": "FOMC Statement",
+    "fc": "",
+    "prev": ""
+   },
+   {
+    "t": "2026-10-28T18:30:00+00:00",
+    "title": "FOMC Press Conference",
+    "fc": "",
+    "prev": ""
+   },
+   {
+    "t": "2026-10-29T12:30:00+00:00",
+    "title": "Advance GDP q/q",
+    "fc": "3.2%",
+    "prev": "1.5%"
+   },
+   {
+    "t": "2026-10-29T12:30:00+00:00",
+    "title": "Core PCE Price Index m/m",
+    "fc": "0.3%",
+    "prev": "0.2%"
+   }
+  ],
   "cal_try": "2026-10-19T19:26:11.666878+00:00",
   "bias": {
    "crypto": 1,
@@ -516,15 +547,15 @@
    "Retail Sales m/m2026-10-15T12:30:00+00:00",
    "Fed Chairman Warsh Speaks2026-10-16T03:30:00+00:00"
   ],
-  "calendar_attempt_v2": "2026-10-25T03:10:24.552367+00:00",
-  "calendar_success_v2": "2026-10-25T03:10:24.552367+00:00"
+  "calendar_attempt_v2": "2026-10-25T09:18:12.053340+00:00",
+  "calendar_success_v2": "2026-10-25T09:18:12.053340+00:00"
  },
  "outbox": [],
  "last_analysis": {
-  "BTC": "2026-10-25T08:45:00+00:00",
-  "ETH": "2026-10-25T08:45:00+00:00",
-  "SOL": "2026-10-25T08:45:00+00:00",
-  "GOLD": "2026-10-25T08:45:00+00:00",
+  "BTC": "2026-10-25T09:15:00+00:00",
+  "ETH": "2026-10-25T09:15:00+00:00",
+  "SOL": "2026-10-25T09:15:00+00:00",
+  "GOLD": "2026-10-25T09:15:00+00:00",
   "NDX": "2026-10-23T20:00:00+00:00"
  },
  "event_ids": [
@@ -856,9 +887,9 @@
   "3af45a2f-4048-4d8e-bdac-75dc107d99d4"
  ],
  "last_decision": {
-  "BTC": "BTC: NONE score=7.5",
-  "ETH": "ETH: NONE score=8.0",
-  "SOL": "SOL: NONE score=9.5",
+  "BTC": "BTC: NONE score=9.0",
+  "ETH": "ETH: NONE score=9.5",
+  "SOL": "SOL: NONE score=10.0",
   "GOLD": "GOLD: NONE score=4.0",
   "NDX": "NDX: B score=7.5"
  },
