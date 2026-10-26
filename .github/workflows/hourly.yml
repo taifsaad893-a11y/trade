@@ -3,6 +3,11 @@ name: market-scanner
 on:
   schedule:
     - cron: "2,17,32,47 * * * *"
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - "state.json"
   workflow_dispatch:
 
 permissions:
@@ -15,7 +20,7 @@ concurrency:
 jobs:
   run:
     runs-on: ubuntu-latest
-    timeout-minutes: 12
+    timeout-minutes: 20
 
     steps:
       - uses: actions/checkout@v4
@@ -37,14 +42,17 @@ jobs:
       - name: Apply reviewed patches
         run: python upgrade_agent.py
 
-      - name: Run paper scanner
-        run: python scanner.py
+      - name: Run paper scanner continuously
+        run: python continuous_scanner.py
         env:
           GEMINI_KEY: ${{ secrets.GEMINI_KEY }}
           TG_TOKEN: ${{ secrets.TG_TOKEN }}
           TG_CHAT: ${{ secrets.TG_CHAT }}
           TWELVE_KEY: ${{ secrets.TWELVE_KEY }}
           EVENT: ${{ github.event_name }}
+
+          LOOP_SCANS: "15"
+          SCAN_INTERVAL_SECONDS: "60"
 
           GOLD_PROVIDER: twelve
           GOLD_SYMBOL: XAU/USD
