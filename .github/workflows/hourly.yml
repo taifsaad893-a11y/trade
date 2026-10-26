@@ -15,7 +15,7 @@ permissions:
 
 concurrency:
   group: scanner
-  cancel-in-progress: false
+  cancel-in-progress: true
 
 jobs:
   run:
