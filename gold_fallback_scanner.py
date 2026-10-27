@@ -6,12 +6,15 @@ import continuous_scanner
 scanner_data = continuous_scanner.scanner_data
 
 _ORIG_GOLD = scanner_data.twelve
-GOLD_YAHOO_SYMBOL = "XAUUSD=X"
+# Yahoo no longer serves the old XAUUSD=X symbol reliably.  GC=F provides
+# liquid COMEX gold futures candles and is used only as the automatic backup
+# when Twelve Data is unavailable/rate-limited.
+GOLD_YAHOO_SYMBOL = "GC=F"
 
 
 def _normalize(df):
     if df is None or df.empty:
-        raise RuntimeError("Yahoo gold returned no data")
+        raise RuntimeError("Yahoo gold fallback returned no data")
     if isinstance(df.columns, pd.MultiIndex):
         df.columns = df.columns.get_level_values(0)
     df = df.rename(columns={
@@ -57,7 +60,9 @@ def _yahoo_gold(tf, now):
             "v": "sum",
         }).dropna(subset=["o", "h", "l", "c"])
 
-    return scanner_data.clean(raw, tf, now)
+    frame = scanner_data.clean(raw, tf, now)
+    frame.attrs["symbol"] = GOLD_YAHOO_SYMBOL
+    return frame
 
 
 def resilient_gold(symbol, tf, now):
