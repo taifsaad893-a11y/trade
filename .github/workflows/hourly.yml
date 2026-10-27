@@ -51,9 +51,6 @@ jobs:
           TWELVE_KEY: ${{ secrets.TWELVE_KEY }}
           EVENT: ${{ github.event_name }}
 
-          # The strategy is based on CLOSED 15m candles, so there is no
-          # benefit in re-running full market analysis every minute.
-          # Scan every 3 minutes inside each 15-minute Actions window.
           LOOP_SCANS: "5"
           SCAN_INTERVAL_SECONDS: "180"
 
@@ -77,27 +74,23 @@ jobs:
           git config user.name "bot"
           git config user.email "bot@users.noreply.github.com"
 
-          git add -- state.json
+          # Keep the scanner-produced state outside the worktree while we
+          # fast-forward to the latest main. This avoids state.json rebase
+          # conflicts when another run persisted state during this run.
+          cp state.json /tmp/scanner-state.json
+          git restore -- agent.py state.json
+          git fetch origin main
+          git reset --hard origin/main
+          cp /tmp/scanner-state.json state.json
 
-          if git diff --staged --quiet; then exit 0; fi
+          git add -- state.json
+          if git diff --staged --quiet; then
+            echo "No state changes"
+            exit 0
+          fi
 
           git commit -m "Persist scanner state and notification queue"
-
-          git restore -- agent.py
-
-          scanner_branch="${GITHUB_REF_NAME}"
-
-          for attempt in 1 2 3; do
-            if git pull --rebase origin "$scanner_branch" && git push origin "HEAD:$scanner_branch"; then
-              exit 0
-            fi
-
-            git rebase --abort 2>/dev/null || true
-            sleep 3
-          done
-
-          echo "State persistence failed; download recovery artifact before restarting."
-          exit 1
+          git push origin HEAD:main
 
       - name: Recovery copy
         if: always()
