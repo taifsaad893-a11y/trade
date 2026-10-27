@@ -43,7 +43,7 @@ jobs:
         run: python upgrade_agent.py
 
       - name: Run paper scanner continuously
-        run: python continuous_scanner.py
+        run: python gold_fallback_scanner.py
         env:
           GEMINI_KEY: ${{ secrets.GEMINI_KEY }}
           TG_TOKEN: ${{ secrets.TG_TOKEN }}
