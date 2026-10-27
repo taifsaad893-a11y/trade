@@ -8,9 +8,9 @@
   },
   "SOL": {
    "side": -1,
-   "ts": "2026-10-27T03:15:52.071321+00:00",
-   "fingerprint": "260100aebea1",
-   "zone_p": 99.93
+   "ts": "2026-10-27T04:45:36.805371+00:00",
+   "fingerprint": "d9ae32770bbb",
+   "zone_p": 99.99
   }
  },
  "cool": {
@@ -552,10 +552,10 @@
  },
  "outbox": [],
  "last_analysis": {
-  "BTC": "2026-10-27T04:15:00+00:00",
-  "ETH": "2026-10-27T04:15:00+00:00",
-  "SOL": "2026-10-27T04:15:00+00:00",
-  "GOLD": "2026-10-27T04:15:00+00:00",
+  "BTC": "2026-10-27T04:45:00+00:00",
+  "ETH": "2026-10-27T04:45:00+00:00",
+  "SOL": "2026-10-27T04:45:00+00:00",
+  "GOLD": "2026-10-27T04:45:00+00:00",
   "NDX": "2026-10-26T20:00:00+00:00"
  },
  "event_ids": [
@@ -907,13 +907,15 @@
   "GOLD:waiting:2026-10-26T21:15:00+00:00",
   "b40415ba-cd67-4818-a027-af4cc5a910c8",
   "0906610c-c70b-4e2d-b808-21fed899c722",
-  "GOLD:waiting:2026-10-27T03:30:00+00:00"
+  "GOLD:waiting:2026-10-27T03:30:00+00:00",
+  "56596b0e-e65b-4a2d-95a1-9a62c88f1d00",
+  "8a6aecfe-6d7e-433e-95e3-9eea86a5e0f0"
  ],
  "last_decision": {
-  "BTC": "BTC: NONE score=4.5",
+  "BTC": "BTC: NONE score=5.0",
   "ETH": "ETH: NONE score=5.5",
-  "SOL": "SOL: NONE score=5.5",
-  "GOLD": "GOLD: NONE score=7.0",
+  "SOL": "SOL: B score=7.0",
+  "GOLD": "GOLD: NONE score=3.5",
   "NDX": "NDX: NONE score=0.0"
  },
  "strategy_versions": {
@@ -924,7 +926,7 @@
   "SOL": "sequence_v1"
  },
  "waiting_status_ts": {
-  "GOLD": "2026-10-27T03:31:41.612456+00:00",
+  "GOLD": "2026-10-27T04:40:37.133148+00:00",
   "NDX": "2026-10-26T15:28:29.280742+00:00"
  },
  "confirmation_setups": {},
