@@ -51,8 +51,11 @@ jobs:
           TWELVE_KEY: ${{ secrets.TWELVE_KEY }}
           EVENT: ${{ github.event_name }}
 
-          LOOP_SCANS: "15"
-          SCAN_INTERVAL_SECONDS: "60"
+          # The strategy is based on CLOSED 15m candles, so there is no
+          # benefit in re-running full market analysis every minute.
+          # Scan every 3 minutes inside each 15-minute Actions window.
+          LOOP_SCANS: "5"
+          SCAN_INTERVAL_SECONDS: "180"
 
           GOLD_PROVIDER: twelve
           GOLD_SYMBOL: XAU/USD
