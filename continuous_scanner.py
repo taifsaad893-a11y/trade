@@ -2,7 +2,53 @@ import os
 import time
 import traceback
 
+import pandas as pd
+
 import scanner
+import scanner_data
+
+
+# Twelve Data is rate-limited. The scanner still runs every minute, but a
+# closed candle does not change until the next candle closes. Reuse the last
+# successful GOLD frame until that point instead of requesting 15m/1h/4h/1d
+# history every minute. If a refresh is rate-limited, keep the last good frame
+# for that iteration and retry on the next scan.
+_TWELVE_ORIGINAL = scanner_data.twelve
+_TWELVE_CACHE = {}
+
+
+def _cached_twelve(symbol, tf, now):
+    cache_key = (symbol, tf)
+    cached = _TWELVE_CACHE.get(cache_key)
+
+    if cached is not None:
+        frame = cached["frame"]
+        last_close = frame["end"].iloc[-1]
+        next_close = last_close + scanner_data.DUR[tf]
+
+        # Give the provider a few seconds after candle close before refreshing.
+        if now < next_close + pd.Timedelta(seconds=5):
+            return frame.copy()
+
+    try:
+        frame = _TWELVE_ORIGINAL(symbol, tf, now)
+        _TWELVE_CACHE[cache_key] = {
+            "frame": frame.copy(),
+            "saved_at": now,
+        }
+        return frame
+    except Exception as exc:
+        if cached is not None and "429" in str(exc):
+            print(
+                f"Twelve Data rate limit for {symbol} {tf}; "
+                "using last good closed-candle cache and retrying next scan",
+                flush=True,
+            )
+            return cached["frame"].copy()
+        raise
+
+
+scanner_data.twelve = _cached_twelve
 
 
 def env_int(name, default, minimum=1):
