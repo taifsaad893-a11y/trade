@@ -17,6 +17,7 @@ def patch_source(source):
     required = {
         "analyze_core", "analyze", "gold_vp", "zone_strat",
         "sr_multi", "atr", "trend", "load", "save",
+        "trend_breakout_strat",
     }
 
     if not required <= functions.keys():
@@ -59,21 +60,22 @@ def patch_source(source):
         ),
     ])
 
+    # IMPORTANT: the repository's reviewed strategy is the single
+    # 1H-trend -> 15m breakout/retest engine for every market.  The old
+    # patcher used to replace analyze() at runtime with analyze_core() /
+    # simple_zones, which meant the code actually executed by Actions was
+    # different from agent.py and caused valid market data to repeatedly
+    # return tier=None / score=0.  Keep runtime behavior aligned with the
+    # reviewed agent instead.
     node = functions["analyze"]
 
     analyze_code = '''def analyze(key, fr, btc_dir):
-    if key in ("GOLD", "NDX"):
-        from simple_zones import analyze_zones
-        res = analyze_zones(key, fr, globals())
-    elif key in ZONE_ASSETS and ZONE_MODE:
-        res = zone_strat(key, fr)
-    elif key == "GOLD" and GOLD_MTF:
-        res = gold_best(fr, btc_dir)
-    else:
-        res = analyze_core(key, fr, btc_dir)
-        res["tf"] = "15m"
+    # One clear strategy for every market: 1H trend -> 15m breakout/retest.
+    res = trend_breakout_strat(key, fr, btc_dir)
+
     if SPOT_ONLY and res["side"] == -1:
         res["tier"] = None
+
     return res
 '''
 
