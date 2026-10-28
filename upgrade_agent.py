@@ -60,18 +60,43 @@ def patch_source(source):
         ),
     ])
 
-    # IMPORTANT: the repository's reviewed strategy is the single
-    # 1H-trend -> 15m breakout/retest engine for every market.  The old
-    # patcher used to replace analyze() at runtime with analyze_core() /
-    # simple_zones, which meant the code actually executed by Actions was
-    # different from agent.py and caused valid market data to repeatedly
-    # return tier=None / score=0.  Keep runtime behavior aligned with the
-    # reviewed agent instead.
+    # Runtime strategy:
+    #   1) clear 15m breakout / breakout-retest remains the primary engine;
+    #   2) confirmed support/resistance BREAK or BOUNCE from zone_strat is
+    #      accepted as an A setup when the trend engine has no entry;
+    #   3) 1H/4H/EMA/VWAP/ICT/CISD are quality inputs inside zone_strat,
+    #      not absolute gates;
+    #   4) EARLY zone signals are never entries here.  A trend B watch is
+    #      retained only when there is no confirmed zone setup.
     node = functions["analyze"]
 
     analyze_code = '''def analyze(key, fr, btc_dir):
-    # One clear strategy for every market: 1H trend -> 15m breakout/retest.
-    res = trend_breakout_strat(key, fr, btc_dir)
+    trend_res = trend_breakout_strat(key, fr, btc_dir)
+
+    # A confirmed breakout/retest from the trend engine has first priority.
+    if trend_res.get("tier") in ("A", "ARMED"):
+        res = trend_res
+    else:
+        try:
+            zone_res = zone_strat(key, fr)
+        except Exception as exc:
+            print(f"{key}: zone strategy error: {exc}")
+            zone_res = None
+
+        # zone_strat tier A means a confirmed ZBreak or ZBounce.  Do not
+        # promote its EARLY state to an entry; it is only context/watch.
+        if zone_res is not None and zone_res.get("tier") == "A":
+            res = zone_res
+        elif trend_res.get("tier") == "B":
+            res = trend_res
+        else:
+            res = trend_res
+            if zone_res is not None:
+                # Keep useful zone diagnostics when the trend engine has no
+                # actionable setup, without manufacturing a score or entry.
+                zobs = zone_res.get("obs")
+                if zobs:
+                    res["obs"] = (res.get("obs") or "") + "\\n\\n" + zobs
 
     if SPOT_ONLY and res["side"] == -1:
         res["tier"] = None
