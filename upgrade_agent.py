@@ -44,9 +44,7 @@ def patch_source(source):
             new = new.replace(before, after, 1)
 
         if new != old:
-            changes.append(
-                (node.lineno - 1, node.end_lineno, new)
-            )
+            changes.append((node.lineno - 1, node.end_lineno, new))
 
     edit("analyze_core", [
         (
@@ -60,82 +58,78 @@ def patch_source(source):
         ),
     ])
 
-    # Runtime strategy:
-    #   1) clear 15m breakout / breakout-retest remains the primary engine;
-    #   2) confirmed support/resistance BREAK or BOUNCE from zone_strat is
-    #      accepted as an A setup when the trend engine has no entry;
-    #   3) 1H/4H/EMA/VWAP/ICT/CISD are quality inputs inside zone_strat,
-    #      not absolute gates;
-    #   4) EARLY zone signals are never entries here.  A trend B watch is
-    #      retained only when there is no confirmed zone setup.
-    node = functions["analyze"]
+    # Trend is context, not an entry gate.  When 1H is range, the breakout
+    # engine can still operate; direction is inferred from 4H when available,
+    # otherwise from price relative to the 1H EMA20.  Confirmed zone bounces
+    # and breaks remain independent entries through zone_strat.
+    edit("trend_breakout_strat", [
+        (
+            '''    # -----------------------------------------------------\n    # 1H decides the trading direction.\n    # -----------------------------------------------------\n    t1 = trend(d1)\n    t4 = trend(d4)\n\n    if t1 == 0:\n        res["side"] = t4 if t4 != 0 else 1\n        res["obs"] = (\n            f"Trend Breakout: 1h {TR[t1]} | 4h {TR[t4]}\\n"\n            "الحالة: 1H رينج — لا دخول، ننتظر اتجاه أو كسر أوضح."\n        )\n        return res\n\n    s = t1\n    res["side"] = s\n''',
+            '''    # -----------------------------------------------------\n    # Trend is quality/context, not a mandatory entry gate.\n    # -----------------------------------------------------\n    t1 = trend(d1)\n    t4 = trend(d4)\n\n    if t1 != 0:\n        s = t1\n    elif t4 != 0:\n        s = t4\n    else:\n        e20_1h = float(ema(d1["c"], 20).iloc[-1])\n        s = 1 if price >= e20_1h else -1\n\n    res["side"] = s\n''',
+        ),
+        (
+            "    strong_breakout = fresh_break and strong_volume and strong_body",
+            "    strong_breakout = fresh_break and strong_body and (strong_volume or vr is None)",
+        ),
+        (
+            "    score = 3.0  # 1H trend is present and decides direction.",
+            "    score = 3.0 if t1 == s else (1.5 if t1 == 0 else 0.5)",
+        ),
+    ])
 
+    # Runtime strategy: breakout/retest and confirmed support/resistance
+    # bounce/break are independent setup families. Trend/EMA/volume affect
+    # quality, but a range reading by itself must not veto a valid setup.
+    node = functions["analyze"]
     analyze_code = '''def analyze(key, fr, btc_dir):
     trend_res = trend_breakout_strat(key, fr, btc_dir)
 
-    # A confirmed breakout/retest from the trend engine has first priority.
+    try:
+        zone_res = zone_strat(key, fr)
+    except Exception as exc:
+        print(f"{key}: zone strategy error: {exc}")
+        zone_res = None
+
+    confirmed = []
     if trend_res.get("tier") in ("A", "ARMED"):
+        confirmed.append(trend_res)
+    if zone_res is not None and zone_res.get("tier") == "A":
+        confirmed.append(zone_res)
+
+    if confirmed:
+        rank = {"A": 2, "ARMED": 1}
+        res = max(
+            confirmed,
+            key=lambda r: (rank.get(r.get("tier"), 0), r.get("score", 0.0)),
+        )
+    elif trend_res.get("tier") == "B":
         res = trend_res
     else:
-        try:
-            zone_res = zone_strat(key, fr)
-        except Exception as exc:
-            print(f"{key}: zone strategy error: {exc}")
-            zone_res = None
-
-        # zone_strat tier A means a confirmed ZBreak or ZBounce.  Do not
-        # promote its EARLY state to an entry; it is only context/watch.
-        if zone_res is not None and zone_res.get("tier") == "A":
-            res = zone_res
-        elif trend_res.get("tier") == "B":
-            res = trend_res
-        else:
-            res = trend_res
-            if zone_res is not None:
-                # Keep useful zone diagnostics when the trend engine has no
-                # actionable setup, without manufacturing a score or entry.
-                zobs = zone_res.get("obs")
-                if zobs:
-                    res["obs"] = (res.get("obs") or "") + "\\n\\n" + zobs
+        res = trend_res
+        if zone_res is not None:
+            zobs = zone_res.get("obs")
+            if zobs:
+                res["obs"] = (res.get("obs") or "") + "\\n\\n" + zobs
 
     if SPOT_ONLY and res["side"] == -1:
         res["tier"] = None
 
     return res
 '''
-
-    current = "".join(
-        lines[node.lineno - 1:node.end_lineno]
-    )
-
+    current = "".join(lines[node.lineno - 1:node.end_lineno])
     if current != analyze_code:
-        changes.append(
-            (node.lineno - 1, node.end_lineno, analyze_code)
-        )
+        changes.append((node.lineno - 1, node.end_lineno, analyze_code))
 
     edit("gold_vp", [
-        (
-            "prof = vol_profile(d15.tail(300))",
-            "prof = vol_profile(d15.iloc[:-24].tail(300))",
-        ),
-        (
-            "for i in range(n - 1, -1, -1):",
-            "for i in range(n - 3, -1, -1):",
-        ),
-        (
-            '"rr": round(min(3.0, rr), 1)',
-            '"rr": round(rr, 2)',
-        ),
+        ("prof = vol_profile(d15.tail(300))", "prof = vol_profile(d15.iloc[:-24].tail(300))"),
+        ("for i in range(n - 1, -1, -1):", "for i in range(n - 3, -1, -1):"),
+        ('"rr": round(min(3.0, rr), 1)', '"rr": round(rr, 2)'),
     ])
 
     edit("zone_strat", [
+        ('"rr": round(min(3.0, rr), 1)', '"rr": round(rr, 2)'),
         (
-            '"rr": round(min(3.0, rr), 1)',
-            '"rr": round(rr, 2)',
-        ),
-        (
-            '"منخفضة" if q >= 7 else '
-            '("متوسطة" if q >= 5 else "عالية")',
+            '"منخفضة" if q >= 7 else ("متوسطة" if q >= 5 else "عالية")',
             '"غير مقاسة إحصائياً (جودة مرتفعة)" if q >= 7 else '
             '("غير مقاسة إحصائياً (جودة متوسطة)" if q >= 5 else '
             '"غير مقاسة إحصائياً (جودة محدودة)")',
