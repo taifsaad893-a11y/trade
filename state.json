@@ -548,17 +548,19 @@
    "Fed Chairman Warsh Speaks2026-10-16T03:30:00+00:00",
    "Federal Funds Rate|2026-10-28T18:00:00+00:00",
    "FOMC Statement|2026-10-28T18:00:00+00:00",
-   "FOMC Press Conference|2026-10-28T18:30:00+00:00"
+   "FOMC Press Conference|2026-10-28T18:30:00+00:00",
+   "Advance GDP q/q|2026-10-29T12:30:00+00:00",
+   "Core PCE Price Index m/m|2026-10-29T12:30:00+00:00"
   ],
   "calendar_attempt_v2": "2026-10-29T07:00:32.959735+00:00",
   "calendar_success_v2": "2026-10-29T07:00:32.959735+00:00"
  },
  "outbox": [],
  "last_analysis": {
-  "BTC": "2026-10-29T11:15:00+00:00",
-  "ETH": "2026-10-29T11:15:00+00:00",
-  "SOL": "2026-10-29T11:15:00+00:00",
-  "GOLD": "2026-10-29T11:15:00+00:00",
+  "BTC": "2026-10-29T12:00:00+00:00",
+  "ETH": "2026-10-29T12:00:00+00:00",
+  "SOL": "2026-10-29T12:00:00+00:00",
+  "GOLD": "2026-10-29T12:00:00+00:00",
   "NDX": "2026-10-28T20:00:00+00:00"
  },
  "event_ids": [
@@ -937,13 +939,15 @@
   "fda525fc-29c0-435e-9acb-7bd0bb69984e",
   "dd7cf5c7-0f7b-4bf8-817d-c3d610bd2def",
   "GOLD:waiting:2026-10-29T02:15:00+00:00",
-  "GOLD:waiting:2026-10-29T08:30:00+00:00"
+  "GOLD:waiting:2026-10-29T08:30:00+00:00",
+  "7bd14bd2-0246-4d92-83ca-6e7430ab0687",
+  "e1fb4b52-a84a-43e5-ab14-f393dcbda61b"
  ],
  "last_decision": {
-  "BTC": "BTC: NONE score=4.0",
+  "BTC": "BTC: NONE score=3.5",
   "ETH": "ETH: NONE score=5.0",
   "SOL": "SOL: NONE score=4.5",
-  "GOLD": "GOLD: NONE score=0.0",
+  "GOLD": "GOLD: NONE score=5.5",
   "NDX": "NDX: B score=6.5"
  },
  "strategy_versions": {
