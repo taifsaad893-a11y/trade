@@ -592,10 +592,10 @@
  },
  "outbox": [],
  "last_analysis": {
-  "BTC": "2026-10-29T20:15:00+00:00",
-  "ETH": "2026-10-29T18:00:00+00:00",
-  "SOL": "2026-10-29T20:15:00+00:00",
-  "GOLD": "2026-10-29T20:15:00+00:00",
+  "BTC": "2026-10-29T21:00:00+00:00",
+  "ETH": "2026-10-29T21:00:00+00:00",
+  "SOL": "2026-10-29T21:00:00+00:00",
+  "GOLD": "2026-10-29T21:00:00+00:00",
   "NDX": "2026-10-29T20:00:00+00:00"
  },
  "event_ids": [
@@ -994,11 +994,12 @@
   "BTC-033:invalid",
   "ETH-034:setup",
   "ETH-034:entered",
-  "ETH-034:closed"
+  "ETH-034:closed",
+  "GOLD:waiting:2026-10-29T21:00:00+00:00"
  ],
  "last_decision": {
-  "BTC": "BTC: NONE score=5.9",
-  "ETH": "ETH: PENDING score=6.5 | ETH-034",
+  "BTC": "BTC: NONE score=7.9",
+  "ETH": "ETH: NONE score=8.5",
   "SOL": "SOL: NONE score=8.5",
   "GOLD": "GOLD: NONE score=4.7",
   "NDX": "NDX: NONE score=5.5"
@@ -1011,7 +1012,7 @@
   "SOL": "sequence_v1"
  },
  "waiting_status_ts": {
-  "GOLD": "2026-10-29T15:04:24.684708+00:00",
+  "GOLD": "2026-10-29T21:11:22.044319+00:00",
   "NDX": "2026-10-29T14:32:33.173094+00:00"
  },
  "confirmation_setups": {},
