@@ -1,85 +1,16 @@
 {
- "active": {
-  "ETH": {
-   "id": "ETH-029",
-   "key": "ETH",
-   "side": -1,
-   "style": "SupportResistanceBounce",
-   "tf": "15m",
-   "entry": 2316.65,
-   "reference_entry": 2316.65,
-   "stop": 2332.252,
-   "stop0": 2332.252,
-   "tps": [
-    2301.0480000000002,
-    2285.4460000000004,
-    2269.8440000000005
-   ],
-   "hits": [
-    false,
-    false,
-    false
-   ],
-   "score": 9.7,
-   "rr": 2.0,
-   "state": "PENDING",
-   "t_decl": "2026-10-29T13:47:13.754760+00:00",
-   "t0": "2026-10-29T13:47:13.754760+00:00",
-   "not_before": "2026-10-29T14:00:00+00:00",
-   "expires": "2026-10-29T17:47:13.754760+00:00",
-   "source": "binance:ETHUSDT",
-   "engine_version": "paper-v2",
-   "strategy_version": "taifmarket_structure_v2",
-   "cost_bps": 14.0,
-   "zone": null,
-   "ambiguous": false
-  },
-  "SOL": {
-   "id": "SOL-030",
-   "key": "SOL",
-   "side": -1,
-   "style": "SupportResistanceBounce",
-   "tf": "15m",
-   "entry": 100.31,
-   "reference_entry": 100.31,
-   "stop": 100.936,
-   "stop0": 100.936,
-   "tps": [
-    99.684,
-    99.05799999999999,
-    98.43199999999999
-   ],
-   "hits": [
-    false,
-    false,
-    false
-   ],
-   "score": 9.7,
-   "rr": 2.0,
-   "state": "PENDING",
-   "t_decl": "2026-10-29T13:47:13.754760+00:00",
-   "t0": "2026-10-29T13:47:13.754760+00:00",
-   "not_before": "2026-10-29T14:00:00+00:00",
-   "expires": "2026-10-29T17:47:13.754760+00:00",
-   "source": "binance:SOLUSDT",
-   "engine_version": "paper-v2",
-   "strategy_version": "taifmarket_structure_v2",
-   "cost_bps": 14.0,
-   "zone": null,
-   "ambiguous": false
-  }
- },
+ "active": {},
  "watch": {
   "NDX:E": {
    "side": -1,
    "ts": "2026-10-20T14:50:04.712551+00:00",
    "fingerprint": "c01a89f078c1"
   },
-  "NDX": {
+  "SOL": {
    "side": 1,
-   "ts": "2026-10-28T20:01:29.511556+00:00",
-   "fingerprint": "e4d96d0f0764",
-   "zone_p": 29848.052734375
+   "ts": "2026-10-29T14:35:33.156216+00:00",
+   "fingerprint": "2550cf4ad3f9",
+   "zone_p": null
   }
  },
  "cool": {
@@ -626,11 +557,11 @@
  },
  "outbox": [],
  "last_analysis": {
-  "BTC": "2026-10-29T13:45:00+00:00",
-  "ETH": "2026-10-29T13:45:00+00:00",
-  "SOL": "2026-10-29T13:45:00+00:00",
-  "GOLD": "2026-10-29T13:45:00+00:00",
-  "NDX": "2026-10-28T20:00:00+00:00"
+  "BTC": "2026-10-29T14:30:00+00:00",
+  "ETH": "2026-10-29T14:30:00+00:00",
+  "SOL": "2026-10-29T14:30:00+00:00",
+  "GOLD": "2026-10-29T14:30:00+00:00",
+  "NDX": "2026-10-29T14:30:00+00:00"
  },
  "event_ids": [
   "b8203e61-129a-4d6d-96b1-bdea07954867",
@@ -1013,14 +944,18 @@
   "e1fb4b52-a84a-43e5-ab14-f393dcbda61b",
   "05ea9224-b830-4a5f-8d39-c0bc541b4924",
   "ETH-029:setup",
-  "SOL-030:setup"
+  "SOL-030:setup",
+  "ETH-029:invalid",
+  "SOL-030:invalid",
+  "NDX:waiting:2026-10-29T14:30:00+00:00",
+  "7a462bd7-0bdb-4b03-a30b-0afc095fcd4a"
  ],
  "last_decision": {
-  "BTC": "BTC: NONE score=6.2",
-  "ETH": "ETH: PENDING score=9.7 | ETH-029",
-  "SOL": "SOL: PENDING score=9.7 | SOL-030",
-  "GOLD": "GOLD: NONE score=5.4",
-  "NDX": "NDX: B score=6.5"
+  "BTC": "BTC: NONE score=5.2",
+  "ETH": "ETH: NONE score=4.7",
+  "SOL": "SOL: B score=4.2",
+  "GOLD": "GOLD: NONE score=6.0",
+  "NDX": "NDX: NONE score=3.7"
  },
  "strategy_versions": {
   "GOLD": "sequence_v1",
@@ -1031,7 +966,7 @@
  },
  "waiting_status_ts": {
   "GOLD": "2026-10-29T08:42:04.782683+00:00",
-  "NDX": "2026-10-28T20:01:29.511556+00:00"
+  "NDX": "2026-10-29T14:32:33.173094+00:00"
  },
  "confirmation_setups": {},
  "health": {
