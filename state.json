@@ -1,33 +1,33 @@
 {
  "active": {
-  "BTC": {
-   "id": "BTC-033",
-   "key": "BTC",
-   "side": -1,
+  "ETH": {
+   "id": "ETH-034",
+   "key": "ETH",
+   "side": 1,
    "style": "SupportResistanceBounce",
    "tf": "15m",
-   "entry": 80961.44,
-   "reference_entry": 80961.44,
-   "stop": 81387.73623076924,
-   "stop0": 81387.73623076924,
+   "entry": 2341.43,
+   "reference_entry": 2341.43,
+   "stop": 2329.382298701298,
+   "stop0": 2329.382298701298,
    "tps": [
-    80535.14376923077,
-    80108.84753846153,
-    79682.5513076923
+    2353.4777012987015,
+    2365.525402597403,
+    2377.573103896105
    ],
    "hits": [
     false,
     false,
     false
    ],
-   "score": 6.7,
+   "score": 6.5,
    "rr": 2.0,
    "state": "PENDING",
-   "t_decl": "2026-10-29T17:18:45.091601+00:00",
-   "t0": "2026-10-29T17:18:45.091601+00:00",
-   "not_before": "2026-10-29T17:30:00+00:00",
-   "expires": "2026-10-29T21:18:45.091601+00:00",
-   "source": "binance:BTCUSDT",
+   "t_decl": "2026-10-29T18:10:08.136759+00:00",
+   "t0": "2026-10-29T18:10:08.136759+00:00",
+   "not_before": "2026-10-29T18:15:00+00:00",
+   "expires": "2026-10-29T22:10:08.136759+00:00",
+   "source": "binance:ETHUSDT",
    "engine_version": "paper-v2",
    "strategy_version": "taifmarket_structure_v2",
    "cost_bps": 14.0,
@@ -521,7 +521,7 @@
    "exit_price": 100.58914285714285
   }
  ],
- "n": 33,
+ "n": 34,
  "last_report": "2026-10-16T21:08:50.332805+00:00",
  "news": {
   "cal": [
@@ -587,10 +587,10 @@
  "outbox": [],
  "last_analysis": {
   "BTC": "2026-10-29T17:15:00+00:00",
-  "ETH": "2026-10-29T17:15:00+00:00",
-  "SOL": "2026-10-29T17:15:00+00:00",
-  "GOLD": "2026-10-29T17:15:00+00:00",
-  "NDX": "2026-10-29T17:15:00+00:00"
+  "ETH": "2026-10-29T18:00:00+00:00",
+  "SOL": "2026-10-29T18:00:00+00:00",
+  "GOLD": "2026-10-29T18:00:00+00:00",
+  "NDX": "2026-10-29T18:00:00+00:00"
  },
  "event_ids": [
   "b8203e61-129a-4d6d-96b1-bdea07954867",
@@ -984,14 +984,16 @@
   "6893473f-8383-4262-98f1-2a029972da2b",
   "ETH-031:invalid",
   "SOL-032:invalid",
-  "BTC-033:setup"
+  "BTC-033:setup",
+  "BTC-033:invalid",
+  "ETH-034:setup"
  ],
  "last_decision": {
   "BTC": "BTC: PENDING score=6.7 | BTC-033",
-  "ETH": "ETH: NONE score=4.0",
-  "SOL": "SOL: NONE score=3.3",
-  "GOLD": "GOLD: NONE score=6.0",
-  "NDX": "NDX: NONE score=3.0"
+  "ETH": "ETH: PENDING score=6.5 | ETH-034",
+  "SOL": "SOL: NONE score=3.8",
+  "GOLD": "GOLD: NONE score=9.1",
+  "NDX": "NDX: NONE score=5.1"
  },
  "strategy_versions": {
   "GOLD": "sequence_v1",
