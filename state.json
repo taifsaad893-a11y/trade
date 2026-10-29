@@ -1,16 +1,45 @@
 {
- "active": {},
+ "active": {
+  "BTC": {
+   "id": "BTC-033",
+   "key": "BTC",
+   "side": -1,
+   "style": "SupportResistanceBounce",
+   "tf": "15m",
+   "entry": 80961.44,
+   "reference_entry": 80961.44,
+   "stop": 81387.73623076924,
+   "stop0": 81387.73623076924,
+   "tps": [
+    80535.14376923077,
+    80108.84753846153,
+    79682.5513076923
+   ],
+   "hits": [
+    false,
+    false,
+    false
+   ],
+   "score": 6.7,
+   "rr": 2.0,
+   "state": "PENDING",
+   "t_decl": "2026-10-29T17:18:45.091601+00:00",
+   "t0": "2026-10-29T17:18:45.091601+00:00",
+   "not_before": "2026-10-29T17:30:00+00:00",
+   "expires": "2026-10-29T21:18:45.091601+00:00",
+   "source": "binance:BTCUSDT",
+   "engine_version": "paper-v2",
+   "strategy_version": "taifmarket_structure_v2",
+   "cost_bps": 14.0,
+   "zone": null,
+   "ambiguous": false
+  }
+ },
  "watch": {
   "NDX:E": {
    "side": -1,
    "ts": "2026-10-20T14:50:04.712551+00:00",
    "fingerprint": "c01a89f078c1"
-  },
-  "BTC": {
-   "side": 1,
-   "ts": "2026-10-29T16:24:50.565282+00:00",
-   "fingerprint": "2550cf4ad3f9",
-   "zone_p": null
   }
  },
  "cool": {
@@ -492,7 +521,7 @@
    "exit_price": 100.58914285714285
   }
  ],
- "n": 32,
+ "n": 33,
  "last_report": "2026-10-16T21:08:50.332805+00:00",
  "news": {
   "cal": [
@@ -557,11 +586,11 @@
  },
  "outbox": [],
  "last_analysis": {
-  "BTC": "2026-10-29T16:15:00+00:00",
-  "ETH": "2026-10-29T15:30:00+00:00",
-  "SOL": "2026-10-29T15:30:00+00:00",
-  "GOLD": "2026-10-29T16:15:00+00:00",
-  "NDX": "2026-10-29T16:15:00+00:00"
+  "BTC": "2026-10-29T17:15:00+00:00",
+  "ETH": "2026-10-29T17:15:00+00:00",
+  "SOL": "2026-10-29T17:15:00+00:00",
+  "GOLD": "2026-10-29T17:15:00+00:00",
+  "NDX": "2026-10-29T17:15:00+00:00"
  },
  "event_ids": [
   "b8203e61-129a-4d6d-96b1-bdea07954867",
@@ -954,14 +983,15 @@
   "SOL-032:setup",
   "6893473f-8383-4262-98f1-2a029972da2b",
   "ETH-031:invalid",
-  "SOL-032:invalid"
+  "SOL-032:invalid",
+  "BTC-033:setup"
  ],
  "last_decision": {
-  "BTC": "BTC: B score=6.1",
-  "ETH": "ETH: PENDING score=8.2 | ETH-031",
-  "SOL": "SOL: PENDING score=7.8 | SOL-032",
-  "GOLD": "GOLD: NONE score=9.1",
-  "NDX": "NDX: NONE score=7.5"
+  "BTC": "BTC: PENDING score=6.7 | BTC-033",
+  "ETH": "ETH: NONE score=4.0",
+  "SOL": "SOL: NONE score=3.3",
+  "GOLD": "GOLD: NONE score=6.0",
+  "NDX": "NDX: NONE score=3.0"
  },
  "strategy_versions": {
   "GOLD": "sequence_v1",
