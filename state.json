@@ -550,15 +550,15 @@
    "FOMC Statement|2026-10-28T18:00:00+00:00",
    "FOMC Press Conference|2026-10-28T18:30:00+00:00"
   ],
-  "calendar_attempt_v2": "2026-10-29T00:34:21.714563+00:00",
-  "calendar_success_v2": "2026-10-29T00:34:21.714563+00:00"
+  "calendar_attempt_v2": "2026-10-29T07:00:32.959735+00:00",
+  "calendar_success_v2": "2026-10-29T07:00:32.959735+00:00"
  },
  "outbox": [],
  "last_analysis": {
-  "BTC": "2026-10-29T06:15:00+00:00",
-  "ETH": "2026-10-29T06:15:00+00:00",
-  "SOL": "2026-10-29T06:15:00+00:00",
-  "GOLD": "2026-10-29T06:15:00+00:00",
+  "BTC": "2026-10-29T07:00:00+00:00",
+  "ETH": "2026-10-29T07:00:00+00:00",
+  "SOL": "2026-10-29T07:00:00+00:00",
+  "GOLD": "2026-10-29T07:00:00+00:00",
   "NDX": "2026-10-28T20:00:00+00:00"
  },
  "event_ids": [
@@ -940,8 +940,8 @@
  ],
  "last_decision": {
   "BTC": "BTC: NONE score=4.5",
-  "ETH": "ETH: NONE score=6.0",
-  "SOL": "SOL: NONE score=5.5",
+  "ETH": "ETH: NONE score=5.0",
+  "SOL": "SOL: NONE score=5.0",
   "GOLD": "GOLD: NONE score=0.0",
   "NDX": "NDX: B score=6.5"
  },
