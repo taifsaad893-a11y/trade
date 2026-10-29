@@ -34,7 +34,7 @@
    "zone": null,
    "ambiguous": false,
    "entry_mode": "NEXT_OPEN",
-   "seen": "2026-10-29T22:00:00+00:00"
+   "seen": "2026-10-29T22:45:00+00:00"
   }
  },
  "watch": {
@@ -629,10 +629,10 @@
  },
  "outbox": [],
  "last_analysis": {
-  "BTC": "2026-10-29T21:45:00+00:00",
+  "BTC": "2026-10-29T23:00:00+00:00",
   "ETH": "2026-10-29T21:45:00+00:00",
-  "SOL": "2026-10-29T22:15:00+00:00",
-  "GOLD": "2026-10-29T22:15:00+00:00",
+  "SOL": "2026-10-29T23:00:00+00:00",
+  "GOLD": "2026-10-29T23:00:00+00:00",
   "NDX": "2026-10-29T20:00:00+00:00"
  },
  "event_ids": [
@@ -1039,9 +1039,9 @@
   "ETH-036:entered"
  ],
  "last_decision": {
-  "BTC": "BTC: PENDING score=8.7 | BTC-035",
+  "BTC": "BTC: NONE score=4.5",
   "ETH": "ETH: PENDING score=9.3 | ETH-036",
-  "SOL": "SOL: NONE score=6.2",
+  "SOL": "SOL: NONE score=5.1",
   "GOLD": "GOLD: NONE score=4.7",
   "NDX": "NDX: NONE score=5.5"
  },
