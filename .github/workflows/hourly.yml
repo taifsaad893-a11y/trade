@@ -2,6 +2,7 @@ name: market-scanner
 
 on:
   schedule:
+    # Run shortly after each 15m candle closes (UTC).
     - cron: "2,17,32,47 * * * *"
   push:
     branches:
@@ -20,7 +21,7 @@ concurrency:
 jobs:
   run:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 10
 
     steps:
       - uses: actions/checkout@v4
@@ -42,7 +43,7 @@ jobs:
       - name: Apply reviewed patches
         run: python upgrade_agent.py
 
-      - name: Run paper scanner continuously
+      - name: Analyze latest closed 15m candle
         run: python gold_fallback_scanner.py
         env:
           GEMINI_KEY: ${{ secrets.GEMINI_KEY }}
@@ -51,8 +52,8 @@ jobs:
           TWELVE_KEY: ${{ secrets.TWELVE_KEY }}
           EVENT: ${{ github.event_name }}
 
-          LOOP_SCANS: "5"
-          SCAN_INTERVAL_SECONDS: "180"
+          LOOP_SCANS: "1"
+          SCAN_INTERVAL_SECONDS: "0"
 
           GOLD_PROVIDER: twelve
           GOLD_SYMBOL: XAU/USD
@@ -74,9 +75,6 @@ jobs:
           git config user.name "bot"
           git config user.email "bot@users.noreply.github.com"
 
-          # Keep the scanner-produced state outside the worktree while we
-          # fast-forward to the latest main. This avoids state.json rebase
-          # conflicts when another run persisted state during this run.
           cp state.json /tmp/scanner-state.json
           git restore -- agent.py state.json
           git fetch origin main
