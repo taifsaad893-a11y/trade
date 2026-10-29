@@ -1,46 +1,12 @@
 {
  "active": {
-  "BTC": {
-   "id": "BTC-035",
-   "key": "BTC",
-   "side": -1,
-   "style": "SupportResistanceBounce",
-   "tf": "15m",
-   "entry": 79169.86,
-   "reference_entry": 79169.86,
-   "stop": 79864.79771428573,
-   "stop0": 79864.79771428573,
-   "tps": [
-    78474.92228571427,
-    77779.98457142855,
-    77085.04685714282
-   ],
-   "hits": [
-    false,
-    false,
-    false
-   ],
-   "score": 8.7,
-   "rr": 2.0,
-   "state": "PENDING",
-   "t_decl": "2026-10-29T21:50:20.553498+00:00",
-   "t0": "2026-10-29T21:50:20.553498+00:00",
-   "not_before": "2026-10-29T22:00:00+00:00",
-   "expires": "2026-10-30T01:50:20.553498+00:00",
-   "source": "binance:BTCUSDT",
-   "engine_version": "paper-v2",
-   "strategy_version": "taifmarket_structure_v2",
-   "cost_bps": 14.0,
-   "zone": null,
-   "ambiguous": false
-  },
   "ETH": {
    "id": "ETH-036",
    "key": "ETH",
    "side": -1,
    "style": "SupportResistanceBounce",
    "tf": "15m",
-   "entry": 2272.91,
+   "entry": 2273.58,
    "reference_entry": 2272.91,
    "stop": 2302.4307142857147,
    "stop0": 2302.4307142857147,
@@ -55,10 +21,10 @@
     false
    ],
    "score": 9.3,
-   "rr": 2.0,
-   "state": "PENDING",
+   "rr": 2.06966898566513,
+   "state": "ENTERED",
    "t_decl": "2026-10-29T21:50:20.553498+00:00",
-   "t0": "2026-10-29T21:50:20.553498+00:00",
+   "t0": "2026-10-29T22:00:00+00:00",
    "not_before": "2026-10-29T22:00:00+00:00",
    "expires": "2026-10-30T01:50:20.553498+00:00",
    "source": "binance:ETHUSDT",
@@ -66,7 +32,9 @@
    "strategy_version": "taifmarket_structure_v2",
    "cost_bps": 14.0,
    "zone": null,
-   "ambiguous": false
+   "ambiguous": false,
+   "entry_mode": "NEXT_OPEN",
+   "seen": "2026-10-29T22:00:00+00:00"
   }
  },
  "watch": {
@@ -663,8 +631,8 @@
  "last_analysis": {
   "BTC": "2026-10-29T21:45:00+00:00",
   "ETH": "2026-10-29T21:45:00+00:00",
-  "SOL": "2026-10-29T21:45:00+00:00",
-  "GOLD": "2026-10-29T21:45:00+00:00",
+  "SOL": "2026-10-29T22:15:00+00:00",
+  "GOLD": "2026-10-29T22:15:00+00:00",
   "NDX": "2026-10-29T20:00:00+00:00"
  },
  "event_ids": [
@@ -1066,12 +1034,14 @@
   "ETH-034:closed",
   "GOLD:waiting:2026-10-29T21:00:00+00:00",
   "BTC-035:setup",
-  "ETH-036:setup"
+  "ETH-036:setup",
+  "BTC-035:invalid",
+  "ETH-036:entered"
  ],
  "last_decision": {
   "BTC": "BTC: PENDING score=8.7 | BTC-035",
   "ETH": "ETH: PENDING score=9.3 | ETH-036",
-  "SOL": "SOL: NONE score=5.4",
+  "SOL": "SOL: NONE score=6.2",
   "GOLD": "GOLD: NONE score=4.7",
   "NDX": "NDX: NONE score=5.5"
  },
