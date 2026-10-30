@@ -1,33 +1,33 @@
 {
  "active": {
-  "ETH": {
-   "id": "ETH-045",
-   "key": "ETH",
-   "side": -1,
+  "NDX": {
+   "id": "NDX-046",
+   "key": "NDX",
+   "side": 1,
    "style": "SupportResistanceBounce",
    "tf": "15m",
-   "entry": 2222.89,
-   "reference_entry": 2222.89,
-   "stop": 2236.319571428571,
-   "stop0": 2236.319571428571,
+   "entry": 28647.291015625,
+   "reference_entry": 28647.291015625,
+   "stop": 28517.745228794643,
+   "stop0": 28517.745228794643,
    "tps": [
-    2209.4604285714286,
-    2196.0308571428573,
-    2182.601285714286
+    28776.836802455357,
+    28906.382589285713,
+    29035.92837611607
    ],
    "hits": [
     false,
     false,
     false
    ],
-   "score": 9.7,
+   "score": 6.4,
    "rr": 2.0,
    "state": "PENDING",
-   "t_decl": "2026-10-30T13:52:59.010347+00:00",
-   "t0": "2026-10-30T13:52:59.010347+00:00",
-   "not_before": "2026-10-30T14:00:00+00:00",
-   "expires": "2026-10-30T17:52:59.010347+00:00",
-   "source": "binance:ETHUSDT",
+   "t_decl": "2026-10-30T14:45:07.684010+00:00",
+   "t0": "2026-10-30T14:45:07.684010+00:00",
+   "not_before": "2026-10-30T15:00:00+00:00",
+   "expires": "2026-10-30T18:45:07.684010+00:00",
+   "source": "yahoo:^NDX",
    "engine_version": "paper-v2",
    "strategy_version": "taifmarket_structure_v2",
    "cost_bps": 14.0,
@@ -35,22 +35,10 @@
    "ambiguous": false
   }
  },
- "watch": {
-  "NDX:E": {
-   "side": -1,
-   "ts": "2026-10-20T14:50:04.712551+00:00",
-   "fingerprint": "c01a89f078c1"
-  },
-  "GOLD": {
-   "side": -1,
-   "ts": "2026-10-30T12:07:09.814037+00:00",
-   "fingerprint": "77ac792de6bd",
-   "zone_p": null
-  }
- },
+ "watch": {},
  "cool": {
   "BTC": "2026-10-13T04:20:14.353187+00:00",
-  "ETH": "2026-10-30T00:30:00+00:00",
+  "ETH": "2026-10-30T14:45:00+00:00",
   "SOL": "2026-10-30T03:45:00+00:00",
   "GOLD": "2026-10-14T22:53:48.396225+00:00",
   "NDX": "2026-10-19T18:48:48.492690+00:00"
@@ -648,9 +636,50 @@
    "exit": "STOP (OHLC ambiguity)",
    "t_close": "2026-10-30T03:45:00+00:00",
    "exit_price": 96.20199999999998
+  },
+  {
+   "id": "ETH-045",
+   "key": "ETH",
+   "side": -1,
+   "style": "SupportResistanceBounce",
+   "tf": "15m",
+   "entry": 2226.0,
+   "reference_entry": 2222.89,
+   "stop": 2236.319571428571,
+   "stop0": 2236.319571428571,
+   "tps": [
+    2209.4604285714286,
+    2196.0308571428573,
+    2182.601285714286
+   ],
+   "hits": [
+    false,
+    false,
+    false
+   ],
+   "score": 9.7,
+   "rr": 2.904107313426696,
+   "state": "CLOSED",
+   "t_decl": "2026-10-30T13:52:59.010347+00:00",
+   "t0": "2026-10-30T14:00:00+00:00",
+   "not_before": "2026-10-30T14:00:00+00:00",
+   "expires": "2026-10-30T17:52:59.010347+00:00",
+   "source": "binance:ETHUSDT",
+   "engine_version": "paper-v2",
+   "strategy_version": "taifmarket_structure_v2",
+   "cost_bps": 14.0,
+   "zone": null,
+   "ambiguous": false,
+   "entry_mode": "NEXT_OPEN",
+   "seen": "2026-10-30T14:30:00+00:00",
+   "r": -1.302,
+   "gross_r": -1.0,
+   "exit": "STOP",
+   "t_close": "2026-10-30T14:45:00+00:00",
+   "exit_price": 2236.319571428571
   }
  ],
- "n": 45,
+ "n": 46,
  "last_report": "2026-10-16T21:08:50.332805+00:00",
  "news": {
   "cal": [
@@ -715,11 +744,11 @@
  },
  "outbox": [],
  "last_analysis": {
-  "BTC": "2026-10-30T13:45:00+00:00",
+  "BTC": "2026-10-30T14:45:00+00:00",
   "ETH": "2026-10-30T13:45:00+00:00",
-  "SOL": "2026-10-30T13:00:00+00:00",
-  "GOLD": "2026-10-30T13:45:00+00:00",
-  "NDX": "2026-10-29T20:00:00+00:00"
+  "SOL": "2026-10-30T14:45:00+00:00",
+  "GOLD": "2026-10-30T14:45:00+00:00",
+  "NDX": "2026-10-30T14:45:00+00:00"
  },
  "event_ids": [
   "b8203e61-129a-4d6d-96b1-bdea07954867",
@@ -1156,14 +1185,17 @@
   "96eab45a-da48-48eb-85d9-5ac2d7e87b85",
   "SOL-044:setup",
   "ETH-045:setup",
-  "SOL-044:invalid"
+  "SOL-044:invalid",
+  "ETH-045:entered",
+  "ETH-045:closed",
+  "NDX-046:setup"
  ],
  "last_decision": {
-  "BTC": "BTC: NONE score=9.9",
+  "BTC": "BTC: NONE score=5.4",
   "ETH": "ETH: PENDING score=9.7 | ETH-045",
-  "SOL": "SOL: PENDING score=5.7 | SOL-044",
-  "GOLD": "GOLD: NONE score=9.1",
-  "NDX": "NDX: NONE score=5.5"
+  "SOL": "SOL: NONE score=6.2",
+  "GOLD": "GOLD: NONE score=5.4",
+  "NDX": "NDX: PENDING score=6.4 | NDX-046"
  },
  "strategy_versions": {
   "GOLD": "sequence_v1",
