@@ -1,33 +1,33 @@
 {
  "active": {
-  "SOL": {
-   "id": "SOL-044",
-   "key": "SOL",
-   "side": 1,
+  "ETH": {
+   "id": "ETH-045",
+   "key": "ETH",
+   "side": -1,
    "style": "SupportResistanceBounce",
    "tf": "15m",
-   "entry": 96.89,
-   "reference_entry": 96.89,
-   "stop": 96.30085714285714,
-   "stop0": 96.30085714285714,
+   "entry": 2222.89,
+   "reference_entry": 2222.89,
+   "stop": 2236.319571428571,
+   "stop0": 2236.319571428571,
    "tps": [
-    97.47914285714286,
-    98.06828571428572,
-    98.65742857142858
+    2209.4604285714286,
+    2196.0308571428573,
+    2182.601285714286
    ],
    "hits": [
     false,
     false,
     false
    ],
-   "score": 5.7,
+   "score": 9.7,
    "rr": 2.0,
    "state": "PENDING",
-   "t_decl": "2026-10-30T13:00:26.173832+00:00",
-   "t0": "2026-10-30T13:00:26.173832+00:00",
-   "not_before": "2026-10-30T13:15:00+00:00",
-   "expires": "2026-10-30T17:00:26.173832+00:00",
-   "source": "binance:SOLUSDT",
+   "t_decl": "2026-10-30T13:52:59.010347+00:00",
+   "t0": "2026-10-30T13:52:59.010347+00:00",
+   "not_before": "2026-10-30T14:00:00+00:00",
+   "expires": "2026-10-30T17:52:59.010347+00:00",
+   "source": "binance:ETHUSDT",
    "engine_version": "paper-v2",
    "strategy_version": "taifmarket_structure_v2",
    "cost_bps": 14.0,
@@ -650,7 +650,7 @@
    "exit_price": 96.20199999999998
   }
  ],
- "n": 44,
+ "n": 45,
  "last_report": "2026-10-16T21:08:50.332805+00:00",
  "news": {
   "cal": [
@@ -715,10 +715,10 @@
  },
  "outbox": [],
  "last_analysis": {
-  "BTC": "2026-10-30T13:00:00+00:00",
-  "ETH": "2026-10-30T13:00:00+00:00",
+  "BTC": "2026-10-30T13:45:00+00:00",
+  "ETH": "2026-10-30T13:45:00+00:00",
   "SOL": "2026-10-30T13:00:00+00:00",
-  "GOLD": "2026-10-30T13:00:00+00:00",
+  "GOLD": "2026-10-30T13:45:00+00:00",
   "NDX": "2026-10-29T20:00:00+00:00"
  },
  "event_ids": [
@@ -1154,13 +1154,15 @@
   "ETH-043:invalid",
   "e01e3d61-5b3b-4615-87b0-1be5db423a8f",
   "96eab45a-da48-48eb-85d9-5ac2d7e87b85",
-  "SOL-044:setup"
+  "SOL-044:setup",
+  "ETH-045:setup",
+  "SOL-044:invalid"
  ],
  "last_decision": {
-  "BTC": "BTC: NONE score=5.1",
-  "ETH": "ETH: NONE score=5.1",
+  "BTC": "BTC: NONE score=9.9",
+  "ETH": "ETH: PENDING score=9.7 | ETH-045",
   "SOL": "SOL: PENDING score=5.7 | SOL-044",
-  "GOLD": "GOLD: NONE score=9.3",
+  "GOLD": "GOLD: NONE score=9.1",
   "NDX": "NDX: NONE score=5.5"
  },
  "strategy_versions": {
