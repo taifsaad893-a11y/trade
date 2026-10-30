@@ -6,7 +6,7 @@
    "side": 1,
    "style": "SupportResistanceBounce",
    "tf": "15m",
-   "entry": 28647.291015625,
+   "entry": 28632.798828125,
    "reference_entry": 28647.291015625,
    "stop": 28517.745228794643,
    "stop0": 28517.745228794643,
@@ -21,10 +21,10 @@
     false
    ],
    "score": 6.4,
-   "rr": 2.0,
-   "state": "PENDING",
+   "rr": 2.3778809420395843,
+   "state": "ENTERED",
    "t_decl": "2026-10-30T14:45:07.684010+00:00",
-   "t0": "2026-10-30T14:45:07.684010+00:00",
+   "t0": "2026-10-30T15:00:00+00:00",
    "not_before": "2026-10-30T15:00:00+00:00",
    "expires": "2026-10-30T18:45:07.684010+00:00",
    "source": "yahoo:^NDX",
@@ -32,7 +32,9 @@
    "strategy_version": "taifmarket_structure_v2",
    "cost_bps": 14.0,
    "zone": null,
-   "ambiguous": false
+   "ambiguous": false,
+   "entry_mode": "NEXT_OPEN",
+   "seen": "2026-10-30T15:15:00+00:00"
   }
  },
  "watch": {},
@@ -739,15 +741,15 @@
    "Advance GDP q/q|2026-10-29T12:30:00+00:00",
    "Core PCE Price Index m/m|2026-10-29T12:30:00+00:00"
   ],
-  "calendar_attempt_v2": "2026-10-30T09:19:08.928524+00:00",
-  "calendar_success_v2": "2026-10-30T09:19:08.928524+00:00"
+  "calendar_attempt_v2": "2026-10-30T15:31:57.119963+00:00",
+  "calendar_success_v2": "2026-10-30T15:31:57.119963+00:00"
  },
  "outbox": [],
  "last_analysis": {
-  "BTC": "2026-10-30T14:45:00+00:00",
+  "BTC": "2026-10-30T15:30:00+00:00",
   "ETH": "2026-10-30T13:45:00+00:00",
-  "SOL": "2026-10-30T14:45:00+00:00",
-  "GOLD": "2026-10-30T14:45:00+00:00",
+  "SOL": "2026-10-30T15:30:00+00:00",
+  "GOLD": "2026-10-30T15:30:00+00:00",
   "NDX": "2026-10-30T14:45:00+00:00"
  },
  "event_ids": [
@@ -1188,13 +1190,14 @@
   "SOL-044:invalid",
   "ETH-045:entered",
   "ETH-045:closed",
-  "NDX-046:setup"
+  "NDX-046:setup",
+  "NDX-046:entered"
  ],
  "last_decision": {
-  "BTC": "BTC: NONE score=5.4",
+  "BTC": "BTC: NONE score=5.5",
   "ETH": "ETH: PENDING score=9.7 | ETH-045",
-  "SOL": "SOL: NONE score=6.2",
-  "GOLD": "GOLD: NONE score=5.4",
+  "SOL": "SOL: NONE score=5.8",
+  "GOLD": "GOLD: NONE score=8.9",
   "NDX": "NDX: PENDING score=6.4 | NDX-046"
  },
  "strategy_versions": {
