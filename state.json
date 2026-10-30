@@ -1,45 +1,22 @@
 {
- "active": {
-  "SOL": {
-   "id": "SOL-039",
-   "key": "SOL",
-   "side": 1,
-   "style": "ClearBreakout",
-   "tf": "15m",
-   "entry": 98.37,
-   "reference_entry": 98.37,
-   "stop": 97.88421428571428,
-   "stop0": 97.88421428571428,
-   "tps": [
-    98.85578571428573,
-    99.34157142857146,
-    99.82735714285718
-   ],
-   "hits": [
-    false,
-    false,
-    false
-   ],
-   "score": 5.9,
-   "rr": 2.0,
-   "state": "PENDING",
-   "t_decl": "2026-10-30T05:51:52.692147+00:00",
-   "t0": "2026-10-30T05:51:52.692147+00:00",
-   "not_before": "2026-10-30T06:00:00+00:00",
-   "expires": "2026-10-30T09:51:52.692147+00:00",
-   "source": "binance:SOLUSDT",
-   "engine_version": "paper-v2",
-   "strategy_version": "taifmarket_structure_v2",
-   "cost_bps": 14.0,
-   "zone": null,
-   "ambiguous": false
-  }
- },
+ "active": {},
  "watch": {
   "NDX:E": {
    "side": -1,
    "ts": "2026-10-20T14:50:04.712551+00:00",
    "fingerprint": "c01a89f078c1"
+  },
+  "BTC": {
+   "side": 1,
+   "ts": "2026-10-30T06:33:53.166554+00:00",
+   "fingerprint": "2550cf4ad3f9",
+   "zone_p": null
+  },
+  "ETH": {
+   "side": 1,
+   "ts": "2026-10-30T06:33:53.166554+00:00",
+   "fingerprint": "2550cf4ad3f9",
+   "zone_p": null
   }
  },
  "cool": {
@@ -709,10 +686,10 @@
  },
  "outbox": [],
  "last_analysis": {
-  "BTC": "2026-10-30T05:45:00+00:00",
-  "ETH": "2026-10-30T05:45:00+00:00",
+  "BTC": "2026-10-30T06:30:00+00:00",
+  "ETH": "2026-10-30T06:30:00+00:00",
   "SOL": "2026-10-30T05:45:00+00:00",
-  "GOLD": "2026-10-30T05:45:00+00:00",
+  "GOLD": "2026-10-30T06:30:00+00:00",
   "NDX": "2026-10-29T20:00:00+00:00"
  },
  "event_ids": [
@@ -1133,13 +1110,16 @@
   "SOL-038:tp2",
   "SOL-038:sl2",
   "SOL-038:closed",
-  "SOL-039:setup"
+  "SOL-039:setup",
+  "d5cd9b4a-2854-4d7c-aaa9-c8f67bd259e6",
+  "13042d5f-d060-4c64-b249-9d99adaeb4da",
+  "SOL-039:invalid"
  ],
  "last_decision": {
-  "BTC": "BTC: NONE score=5.7",
-  "ETH": "ETH: NONE score=4.4",
+  "BTC": "BTC: B score=3.5",
+  "ETH": "ETH: B score=3.5",
   "SOL": "SOL: PENDING score=5.9 | SOL-039",
-  "GOLD": "GOLD: NONE score=8.2",
+  "GOLD": "GOLD: NONE score=6.0",
   "NDX": "NDX: NONE score=5.5"
  },
  "strategy_versions": {
