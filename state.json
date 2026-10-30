@@ -750,11 +750,11 @@
  },
  "outbox": [],
  "last_analysis": {
-  "BTC": "2026-10-30T19:15:00+00:00",
-  "ETH": "2026-10-30T19:15:00+00:00",
-  "SOL": "2026-10-30T19:15:00+00:00",
-  "GOLD": "2026-10-30T19:15:00+00:00",
-  "NDX": "2026-10-30T19:15:00+00:00"
+  "BTC": "2026-10-30T20:00:00+00:00",
+  "ETH": "2026-10-30T20:00:00+00:00",
+  "SOL": "2026-10-30T20:00:00+00:00",
+  "GOLD": "2026-10-30T20:00:00+00:00",
+  "NDX": "2026-10-30T20:00:00+00:00"
  },
  "event_ids": [
   "b8203e61-129a-4d6d-96b1-bdea07954867",
@@ -1201,11 +1201,11 @@
   "NDX:waiting:2026-10-30T17:45:00+00:00"
  ],
  "last_decision": {
-  "BTC": "BTC: NONE score=9.1",
-  "ETH": "ETH: NONE score=5.1",
-  "SOL": "SOL: NONE score=5.4",
-  "GOLD": "GOLD: NONE score=5.4",
-  "NDX": "NDX: NONE score=5.1"
+  "BTC": "BTC: NONE score=5.4",
+  "ETH": "ETH: NONE score=5.7",
+  "SOL": "SOL: NONE score=4.7",
+  "GOLD": "GOLD: NONE score=7.7",
+  "NDX": "NDX: NONE score=6.2"
  },
  "strategy_versions": {
   "GOLD": "sequence_v1",
