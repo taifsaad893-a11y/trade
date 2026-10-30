@@ -1,5 +1,40 @@
 {
- "active": {},
+ "active": {
+  "ETH": {
+   "id": "ETH-040",
+   "key": "ETH",
+   "side": -1,
+   "style": "SupportResistanceBounce",
+   "tf": "15m",
+   "entry": 2226.29,
+   "reference_entry": 2226.29,
+   "stop": 2236.3247142857144,
+   "stop0": 2236.3247142857144,
+   "tps": [
+    2216.2552857142855,
+    2206.220571428571,
+    2196.1858571428565
+   ],
+   "hits": [
+    false,
+    false,
+    false
+   ],
+   "score": 8.9,
+   "rr": 2.0,
+   "state": "PENDING",
+   "t_decl": "2026-10-30T08:30:10.450008+00:00",
+   "t0": "2026-10-30T08:30:10.450008+00:00",
+   "not_before": "2026-10-30T08:45:00+00:00",
+   "expires": "2026-10-30T12:30:10.450008+00:00",
+   "source": "binance:ETHUSDT",
+   "engine_version": "paper-v2",
+   "strategy_version": "taifmarket_structure_v2",
+   "cost_bps": 14.0,
+   "zone": null,
+   "ambiguous": false
+  }
+ },
  "watch": {
   "NDX:E": {
    "side": -1,
@@ -609,7 +644,7 @@
    "exit_price": 96.20199999999998
   }
  ],
- "n": 39,
+ "n": 40,
  "last_report": "2026-10-16T21:08:50.332805+00:00",
  "news": {
   "cal": [
@@ -674,10 +709,10 @@
  },
  "outbox": [],
  "last_analysis": {
-  "BTC": "2026-10-30T07:30:00+00:00",
-  "ETH": "2026-10-30T07:30:00+00:00",
-  "SOL": "2026-10-30T07:30:00+00:00",
-  "GOLD": "2026-10-30T07:30:00+00:00",
+  "BTC": "2026-10-30T08:30:00+00:00",
+  "ETH": "2026-10-30T08:30:00+00:00",
+  "SOL": "2026-10-30T08:30:00+00:00",
+  "GOLD": "2026-10-30T08:30:00+00:00",
   "NDX": "2026-10-29T20:00:00+00:00"
  },
  "event_ids": [
@@ -1101,13 +1136,14 @@
   "SOL-039:setup",
   "d5cd9b4a-2854-4d7c-aaa9-c8f67bd259e6",
   "13042d5f-d060-4c64-b249-9d99adaeb4da",
-  "SOL-039:invalid"
+  "SOL-039:invalid",
+  "ETH-040:setup"
  ],
  "last_decision": {
-  "BTC": "BTC: NONE score=4.4",
-  "ETH": "ETH: NONE score=4.4",
-  "SOL": "SOL: NONE score=3.6",
-  "GOLD": "GOLD: NONE score=5.4",
+  "BTC": "BTC: NONE score=5.4",
+  "ETH": "ETH: PENDING score=8.9 | ETH-040",
+  "SOL": "SOL: NONE score=5.4",
+  "GOLD": "GOLD: NONE score=6.0",
   "NDX": "NDX: NONE score=5.5"
  },
  "strategy_versions": {
