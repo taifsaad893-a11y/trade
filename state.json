@@ -1,33 +1,67 @@
 {
  "active": {
-  "SOL": {
-   "id": "SOL-041",
-   "key": "SOL",
-   "side": -1,
-   "style": "ClearBreakout",
+  "BTC": {
+   "id": "BTC-042",
+   "key": "BTC",
+   "side": 1,
+   "style": "SupportResistanceBounce",
    "tf": "15m",
-   "entry": 96.49,
-   "reference_entry": 96.49,
-   "stop": 96.93621428571429,
-   "stop0": 96.93621428571429,
+   "entry": 77700.11,
+   "reference_entry": 77700.11,
+   "stop": 77369.04385714285,
+   "stop0": 77369.04385714285,
    "tps": [
-    96.0437857142857,
-    95.59757142857141,
-    95.15135714285712
+    78031.17614285715,
+    78362.2422857143,
+    78693.30842857144
    ],
    "hits": [
     false,
     false,
     false
    ],
-   "score": 9.1,
+   "score": 6.0,
    "rr": 2.0,
    "state": "PENDING",
-   "t_decl": "2026-10-30T10:16:21.946658+00:00",
-   "t0": "2026-10-30T10:16:21.946658+00:00",
-   "not_before": "2026-10-30T10:30:00+00:00",
-   "expires": "2026-10-30T14:16:21.946658+00:00",
-   "source": "binance:SOLUSDT",
+   "t_decl": "2026-10-30T10:57:13.716216+00:00",
+   "t0": "2026-10-30T10:57:13.716216+00:00",
+   "not_before": "2026-10-30T11:00:00+00:00",
+   "expires": "2026-10-30T14:57:13.716216+00:00",
+   "source": "binance:BTCUSDT",
+   "engine_version": "paper-v2",
+   "strategy_version": "taifmarket_structure_v2",
+   "cost_bps": 14.0,
+   "zone": null,
+   "ambiguous": false
+  },
+  "ETH": {
+   "id": "ETH-043",
+   "key": "ETH",
+   "side": 1,
+   "style": "SupportResistanceBounce",
+   "tf": "15m",
+   "entry": 2245.71,
+   "reference_entry": 2245.71,
+   "stop": 2228.824035714286,
+   "stop0": 2228.824035714286,
+   "tps": [
+    2262.595964285714,
+    2279.4819285714284,
+    2296.3678928571426
+   ],
+   "hits": [
+    false,
+    false,
+    false
+   ],
+   "score": 6.4,
+   "rr": 2.0,
+   "state": "PENDING",
+   "t_decl": "2026-10-30T10:57:13.716216+00:00",
+   "t0": "2026-10-30T10:57:13.716216+00:00",
+   "not_before": "2026-10-30T11:00:00+00:00",
+   "expires": "2026-10-30T14:57:13.716216+00:00",
+   "source": "binance:ETHUSDT",
    "engine_version": "paper-v2",
    "strategy_version": "taifmarket_structure_v2",
    "cost_bps": 14.0,
@@ -644,7 +678,7 @@
    "exit_price": 96.20199999999998
   }
  ],
- "n": 41,
+ "n": 43,
  "last_report": "2026-10-16T21:08:50.332805+00:00",
  "news": {
   "cal": [
@@ -709,10 +743,10 @@
  },
  "outbox": [],
  "last_analysis": {
-  "BTC": "2026-10-30T10:15:00+00:00",
-  "ETH": "2026-10-30T10:15:00+00:00",
+  "BTC": "2026-10-30T10:45:00+00:00",
+  "ETH": "2026-10-30T10:45:00+00:00",
   "SOL": "2026-10-30T10:15:00+00:00",
-  "GOLD": "2026-10-30T10:15:00+00:00",
+  "GOLD": "2026-10-30T10:45:00+00:00",
   "NDX": "2026-10-29T20:00:00+00:00"
  },
  "event_ids": [
@@ -1140,13 +1174,16 @@
   "ETH-040:setup",
   "ETH-040:invalid",
   "SOL-041:setup",
-  "GOLD:waiting:2026-10-30T10:15:00+00:00"
+  "GOLD:waiting:2026-10-30T10:15:00+00:00",
+  "BTC-042:setup",
+  "ETH-043:setup",
+  "SOL-041:invalid"
  ],
  "last_decision": {
-  "BTC": "BTC: NONE score=9.1",
-  "ETH": "ETH: NONE score=5.8",
+  "BTC": "BTC: PENDING score=6.0 | BTC-042",
+  "ETH": "ETH: PENDING score=6.4 | ETH-043",
   "SOL": "SOL: PENDING score=9.1 | SOL-041",
-  "GOLD": "GOLD: NONE score=8.9",
+  "GOLD": "GOLD: NONE score=5.4",
   "NDX": "NDX: NONE score=5.5"
  },
  "strategy_versions": {
