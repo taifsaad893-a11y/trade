@@ -1,76 +1,5 @@
 {
- "active": {
-  "ETH": {
-   "id": "ETH-036",
-   "key": "ETH",
-   "side": -1,
-   "style": "SupportResistanceBounce",
-   "tf": "15m",
-   "entry": 2273.58,
-   "reference_entry": 2272.91,
-   "stop": 2273.58,
-   "stop0": 2302.4307142857147,
-   "tps": [
-    2243.389285714285,
-    2213.8685714285702,
-    2184.3478571428554
-   ],
-   "hits": [
-    true,
-    false,
-    false
-   ],
-   "score": 9.3,
-   "rr": 2.06966898566513,
-   "state": "ENTERED",
-   "t_decl": "2026-10-29T21:50:20.553498+00:00",
-   "t0": "2026-10-29T22:00:00+00:00",
-   "not_before": "2026-10-29T22:00:00+00:00",
-   "expires": "2026-10-30T01:50:20.553498+00:00",
-   "source": "binance:ETHUSDT",
-   "engine_version": "paper-v2",
-   "strategy_version": "taifmarket_structure_v2",
-   "cost_bps": 14.0,
-   "zone": null,
-   "ambiguous": false,
-   "entry_mode": "NEXT_OPEN",
-   "seen": "2026-10-30T00:00:00+00:00"
-  },
-  "BTC": {
-   "id": "BTC-037",
-   "key": "BTC",
-   "side": -1,
-   "style": "BreakoutRetest",
-   "tf": "15m",
-   "entry": 77923.04,
-   "reference_entry": 77923.04,
-   "stop": 78396.23042857143,
-   "stop0": 78396.23042857143,
-   "tps": [
-    77449.84957142855,
-    76976.65914285711,
-    76503.46871428567
-   ],
-   "hits": [
-    false,
-    false,
-    false
-   ],
-   "score": 10.0,
-   "rr": 2.0,
-   "state": "PENDING",
-   "t_decl": "2026-10-30T00:15:36.654403+00:00",
-   "t0": "2026-10-30T00:15:36.654403+00:00",
-   "not_before": "2026-10-30T00:30:00+00:00",
-   "expires": "2026-10-30T04:15:36.654403+00:00",
-   "source": "binance:BTCUSDT",
-   "engine_version": "paper-v2",
-   "strategy_version": "taifmarket_structure_v2",
-   "cost_bps": 14.0,
-   "zone": null,
-   "ambiguous": false
-  }
- },
+ "active": {},
  "watch": {
   "NDX:E": {
    "side": -1,
@@ -80,7 +9,7 @@
  },
  "cool": {
   "BTC": "2026-10-13T04:20:14.353187+00:00",
-  "ETH": "2026-10-29T18:45:00+00:00",
+  "ETH": "2026-10-30T00:30:00+00:00",
   "SOL": "2026-10-24T17:00:00+00:00",
   "GOLD": "2026-10-14T22:53:48.396225+00:00",
   "NDX": "2026-10-19T18:48:48.492690+00:00"
@@ -596,6 +525,47 @@
    "exit": "STOP",
    "t_close": "2026-10-29T18:45:00+00:00",
    "exit_price": 2329.382298701298
+  },
+  {
+   "id": "ETH-036",
+   "key": "ETH",
+   "side": -1,
+   "style": "SupportResistanceBounce",
+   "tf": "15m",
+   "entry": 2273.58,
+   "reference_entry": 2272.91,
+   "stop": 2243.389285714285,
+   "stop0": 2302.4307142857147,
+   "tps": [
+    2243.389285714285,
+    2213.8685714285702,
+    2184.3478571428554
+   ],
+   "hits": [
+    true,
+    true,
+    false
+   ],
+   "score": 9.3,
+   "rr": 2.06966898566513,
+   "state": "CLOSED",
+   "t_decl": "2026-10-29T21:50:20.553498+00:00",
+   "t0": "2026-10-29T22:00:00+00:00",
+   "not_before": "2026-10-29T22:00:00+00:00",
+   "expires": "2026-10-30T01:50:20.553498+00:00",
+   "source": "binance:ETHUSDT",
+   "engine_version": "paper-v2",
+   "strategy_version": "taifmarket_structure_v2",
+   "cost_bps": 14.0,
+   "zone": null,
+   "ambiguous": true,
+   "entry_mode": "NEXT_OPEN",
+   "seen": "2026-10-30T00:15:00+00:00",
+   "r": 1.2772,
+   "gross_r": 1.3875,
+   "exit": "STOP (OHLC ambiguity)",
+   "t_close": "2026-10-30T00:30:00+00:00",
+   "exit_price": 2243.389285714285
   }
  ],
  "n": 37,
@@ -661,12 +631,29 @@
   "calendar_attempt_v2": "2026-10-29T20:23:12.349802+00:00",
   "calendar_success_v2": "2026-10-29T20:23:12.349802+00:00"
  },
- "outbox": [],
+ "outbox": [
+  {
+   "id": "BTC-037:invalid:1",
+   "text": "❌ BTC-037: أُلغي قبل الدخول بسبب تغيّر سعر الافتتاح أو ضعف R:R.\nحدث: BTC-037:invalid:1"
+  },
+  {
+   "id": "ETH-036:tp2:1",
+   "text": "🎯 ETH-036 | TP2 تحقق @ 2,213.87\nحدث: ETH-036:tp2:1"
+  },
+  {
+   "id": "ETH-036:sl2:1",
+   "text": "🔒 ETH-036 | الوقف الورقي صار 2,243.39\nحدث: ETH-036:sl2:1"
+  },
+  {
+   "id": "ETH-036:closed:1",
+   "text": "📋 ETH-036 | إغلاق ورقي: STOP (OHLC ambiguity)\nالنتيجة الإجمالية +1.39R | بعد الكلفة المفترضة +1.28R\nترتيب الحركة داخل شمعة ملتبس؛ النتيجة حسب سياسة محافظة.\nحدث: ETH-036:closed:1"
+  }
+ ],
  "last_analysis": {
   "BTC": "2026-10-30T00:15:00+00:00",
   "ETH": "2026-10-29T21:45:00+00:00",
-  "SOL": "2026-10-30T00:15:00+00:00",
-  "GOLD": "2026-10-30T00:15:00+00:00",
+  "SOL": "2026-10-30T01:00:00+00:00",
+  "GOLD": "2026-10-30T01:00:00+00:00",
   "NDX": "2026-10-29T20:00:00+00:00"
  },
  "event_ids": [
@@ -1073,13 +1060,17 @@
   "ETH-036:entered",
   "BTC-037:setup",
   "ETH-036:tp1",
-  "ETH-036:sl1"
+  "ETH-036:sl1",
+  "BTC-037:invalid",
+  "ETH-036:tp2",
+  "ETH-036:sl2",
+  "ETH-036:closed"
  ],
  "last_decision": {
   "BTC": "BTC: PENDING score=10.0 | BTC-037",
   "ETH": "ETH: PENDING score=9.3 | ETH-036",
-  "SOL": "SOL: NONE score=5.4",
-  "GOLD": "GOLD: NONE score=6.0",
+  "SOL": "SOL: NONE score=5.1",
+  "GOLD": "GOLD: NONE score=8.9",
   "NDX": "NDX: NONE score=5.5"
  },
  "strategy_versions": {
