@@ -5,6 +5,12 @@
    "side": -1,
    "ts": "2026-10-20T14:50:04.712551+00:00",
    "fingerprint": "c01a89f078c1"
+  },
+  "BTC": {
+   "side": -1,
+   "ts": "2026-10-30T02:04:23.443626+00:00",
+   "fingerprint": "77ac792de6bd",
+   "zone_p": null
   }
  },
  "cool": {
@@ -631,29 +637,12 @@
   "calendar_attempt_v2": "2026-10-29T20:23:12.349802+00:00",
   "calendar_success_v2": "2026-10-29T20:23:12.349802+00:00"
  },
- "outbox": [
-  {
-   "id": "BTC-037:invalid:1",
-   "text": "❌ BTC-037: أُلغي قبل الدخول بسبب تغيّر سعر الافتتاح أو ضعف R:R.\nحدث: BTC-037:invalid:1"
-  },
-  {
-   "id": "ETH-036:tp2:1",
-   "text": "🎯 ETH-036 | TP2 تحقق @ 2,213.87\nحدث: ETH-036:tp2:1"
-  },
-  {
-   "id": "ETH-036:sl2:1",
-   "text": "🔒 ETH-036 | الوقف الورقي صار 2,243.39\nحدث: ETH-036:sl2:1"
-  },
-  {
-   "id": "ETH-036:closed:1",
-   "text": "📋 ETH-036 | إغلاق ورقي: STOP (OHLC ambiguity)\nالنتيجة الإجمالية +1.39R | بعد الكلفة المفترضة +1.28R\nترتيب الحركة داخل شمعة ملتبس؛ النتيجة حسب سياسة محافظة.\nحدث: ETH-036:closed:1"
-  }
- ],
+ "outbox": [],
  "last_analysis": {
-  "BTC": "2026-10-30T00:15:00+00:00",
+  "BTC": "2026-10-30T02:00:00+00:00",
   "ETH": "2026-10-29T21:45:00+00:00",
-  "SOL": "2026-10-30T01:00:00+00:00",
-  "GOLD": "2026-10-30T01:00:00+00:00",
+  "SOL": "2026-10-30T02:00:00+00:00",
+  "GOLD": "2026-10-30T02:00:00+00:00",
   "NDX": "2026-10-29T20:00:00+00:00"
  },
  "event_ids": [
@@ -1064,13 +1053,14 @@
   "BTC-037:invalid",
   "ETH-036:tp2",
   "ETH-036:sl2",
-  "ETH-036:closed"
+  "ETH-036:closed",
+  "afd174e4-e1ee-4e63-84b8-3963ebedfe79"
  ],
  "last_decision": {
-  "BTC": "BTC: PENDING score=10.0 | BTC-037",
+  "BTC": "BTC: B score=6.7",
   "ETH": "ETH: PENDING score=9.3 | ETH-036",
   "SOL": "SOL: NONE score=5.1",
-  "GOLD": "GOLD: NONE score=8.9",
+  "GOLD": "GOLD: NONE score=6.0",
   "NDX": "NDX: NONE score=5.5"
  },
  "strategy_versions": {
