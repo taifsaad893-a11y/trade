@@ -1,5 +1,40 @@
 {
- "active": {},
+ "active": {
+  "SOL": {
+   "id": "SOL-041",
+   "key": "SOL",
+   "side": -1,
+   "style": "ClearBreakout",
+   "tf": "15m",
+   "entry": 96.49,
+   "reference_entry": 96.49,
+   "stop": 96.93621428571429,
+   "stop0": 96.93621428571429,
+   "tps": [
+    96.0437857142857,
+    95.59757142857141,
+    95.15135714285712
+   ],
+   "hits": [
+    false,
+    false,
+    false
+   ],
+   "score": 9.1,
+   "rr": 2.0,
+   "state": "PENDING",
+   "t_decl": "2026-10-30T10:16:21.946658+00:00",
+   "t0": "2026-10-30T10:16:21.946658+00:00",
+   "not_before": "2026-10-30T10:30:00+00:00",
+   "expires": "2026-10-30T14:16:21.946658+00:00",
+   "source": "binance:SOLUSDT",
+   "engine_version": "paper-v2",
+   "strategy_version": "taifmarket_structure_v2",
+   "cost_bps": 14.0,
+   "zone": null,
+   "ambiguous": false
+  }
+ },
  "watch": {
   "NDX:E": {
    "side": -1,
@@ -609,7 +644,7 @@
    "exit_price": 96.20199999999998
   }
  ],
- "n": 40,
+ "n": 41,
  "last_report": "2026-10-16T21:08:50.332805+00:00",
  "news": {
   "cal": [
@@ -674,10 +709,10 @@
  },
  "outbox": [],
  "last_analysis": {
-  "BTC": "2026-10-30T09:15:00+00:00",
-  "ETH": "2026-10-30T08:30:00+00:00",
-  "SOL": "2026-10-30T09:15:00+00:00",
-  "GOLD": "2026-10-30T09:15:00+00:00",
+  "BTC": "2026-10-30T10:15:00+00:00",
+  "ETH": "2026-10-30T10:15:00+00:00",
+  "SOL": "2026-10-30T10:15:00+00:00",
+  "GOLD": "2026-10-30T10:15:00+00:00",
   "NDX": "2026-10-29T20:00:00+00:00"
  },
  "event_ids": [
@@ -1103,13 +1138,15 @@
   "13042d5f-d060-4c64-b249-9d99adaeb4da",
   "SOL-039:invalid",
   "ETH-040:setup",
-  "ETH-040:invalid"
+  "ETH-040:invalid",
+  "SOL-041:setup",
+  "GOLD:waiting:2026-10-30T10:15:00+00:00"
  ],
  "last_decision": {
-  "BTC": "BTC: NONE score=9.5",
-  "ETH": "ETH: PENDING score=8.9 | ETH-040",
-  "SOL": "SOL: NONE score=5.4",
-  "GOLD": "GOLD: NONE score=4.7",
+  "BTC": "BTC: NONE score=9.1",
+  "ETH": "ETH: NONE score=5.8",
+  "SOL": "SOL: PENDING score=9.1 | SOL-041",
+  "GOLD": "GOLD: NONE score=8.9",
   "NDX": "NDX: NONE score=5.5"
  },
  "strategy_versions": {
@@ -1120,7 +1157,7 @@
   "SOL": "sequence_v1"
  },
  "waiting_status_ts": {
-  "GOLD": "2026-10-30T03:34:29.995831+00:00",
+  "GOLD": "2026-10-30T10:16:21.946658+00:00",
   "NDX": "2026-10-29T14:32:33.173094+00:00"
  },
  "confirmation_setups": {},
