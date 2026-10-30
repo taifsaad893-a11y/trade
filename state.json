@@ -1,42 +1,5 @@
 {
- "active": {
-  "SOL": {
-   "id": "SOL-038",
-   "key": "SOL",
-   "side": 1,
-   "style": "SupportResistanceBounce",
-   "tf": "15m",
-   "entry": 95.44,
-   "reference_entry": 95.49,
-   "stop": 95.44,
-   "stop0": 94.778,
-   "tps": [
-    96.20199999999998,
-    96.91399999999997,
-    97.62599999999996
-   ],
-   "hits": [
-    true,
-    false,
-    false
-   ],
-   "score": 5.7,
-   "rr": 2.2265861027190232,
-   "state": "ENTERED",
-   "t_decl": "2026-10-30T02:54:00.731724+00:00",
-   "t0": "2026-10-30T03:00:00+00:00",
-   "not_before": "2026-10-30T03:00:00+00:00",
-   "expires": "2026-10-30T06:54:00.731724+00:00",
-   "source": "binance:SOLUSDT",
-   "engine_version": "paper-v2",
-   "strategy_version": "taifmarket_structure_v2",
-   "cost_bps": 14.0,
-   "zone": null,
-   "ambiguous": false,
-   "entry_mode": "NEXT_OPEN",
-   "seen": "2026-10-30T03:15:00+00:00"
-  }
- },
+ "active": {},
  "watch": {
   "NDX:E": {
    "side": -1,
@@ -47,7 +10,7 @@
  "cool": {
   "BTC": "2026-10-13T04:20:14.353187+00:00",
   "ETH": "2026-10-30T00:30:00+00:00",
-  "SOL": "2026-10-24T17:00:00+00:00",
+  "SOL": "2026-10-30T03:45:00+00:00",
   "GOLD": "2026-10-14T22:53:48.396225+00:00",
   "NDX": "2026-10-19T18:48:48.492690+00:00"
  },
@@ -603,6 +566,47 @@
    "exit": "STOP (OHLC ambiguity)",
    "t_close": "2026-10-30T00:30:00+00:00",
    "exit_price": 2243.389285714285
+  },
+  {
+   "id": "SOL-038",
+   "key": "SOL",
+   "side": 1,
+   "style": "SupportResistanceBounce",
+   "tf": "15m",
+   "entry": 95.44,
+   "reference_entry": 95.49,
+   "stop": 96.20199999999998,
+   "stop0": 94.778,
+   "tps": [
+    96.20199999999998,
+    96.91399999999997,
+    97.62599999999996
+   ],
+   "hits": [
+    true,
+    true,
+    false
+   ],
+   "score": 5.7,
+   "rr": 2.2265861027190232,
+   "state": "CLOSED",
+   "t_decl": "2026-10-30T02:54:00.731724+00:00",
+   "t0": "2026-10-30T03:00:00+00:00",
+   "not_before": "2026-10-30T03:00:00+00:00",
+   "expires": "2026-10-30T06:54:00.731724+00:00",
+   "source": "binance:SOLUSDT",
+   "engine_version": "paper-v2",
+   "strategy_version": "taifmarket_structure_v2",
+   "cost_bps": 14.0,
+   "zone": null,
+   "ambiguous": true,
+   "entry_mode": "NEXT_OPEN",
+   "seen": "2026-10-30T03:30:00+00:00",
+   "r": 1.3077,
+   "gross_r": 1.5096,
+   "exit": "STOP (OHLC ambiguity)",
+   "t_close": "2026-10-30T03:45:00+00:00",
+   "exit_price": 96.20199999999998
   }
  ],
  "n": 38,
@@ -670,10 +674,10 @@
  },
  "outbox": [],
  "last_analysis": {
-  "BTC": "2026-10-30T03:30:00+00:00",
-  "ETH": "2026-10-30T03:30:00+00:00",
+  "BTC": "2026-10-30T04:15:00+00:00",
+  "ETH": "2026-10-30T04:15:00+00:00",
   "SOL": "2026-10-30T02:45:00+00:00",
-  "GOLD": "2026-10-30T03:30:00+00:00",
+  "GOLD": "2026-10-30T04:15:00+00:00",
   "NDX": "2026-10-29T20:00:00+00:00"
  },
  "event_ids": [
@@ -1090,13 +1094,16 @@
   "SOL-038:entered",
   "SOL-038:tp1",
   "SOL-038:sl1",
-  "GOLD:waiting:2026-10-30T03:30:00+00:00"
+  "GOLD:waiting:2026-10-30T03:30:00+00:00",
+  "SOL-038:tp2",
+  "SOL-038:sl2",
+  "SOL-038:closed"
  ],
  "last_decision": {
-  "BTC": "BTC: NONE score=5.1",
-  "ETH": "ETH: NONE score=5.1",
+  "BTC": "BTC: NONE score=4.4",
+  "ETH": "ETH: NONE score=4.4",
   "SOL": "SOL: PENDING score=5.7 | SOL-038",
-  "GOLD": "GOLD: NONE score=6.0",
+  "GOLD": "GOLD: NONE score=7.7",
   "NDX": "NDX: NONE score=5.5"
  },
  "strategy_versions": {
