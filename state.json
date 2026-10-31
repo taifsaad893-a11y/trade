@@ -6,7 +6,7 @@
    "side": -1,
    "style": "ClearBreakout",
    "tf": "15m",
-   "entry": 95.65,
+   "entry": 95.77,
    "reference_entry": 95.65,
    "stop": 96.34435714285715,
    "stop0": 96.34435714285715,
@@ -21,10 +21,10 @@
     false
    ],
    "score": 7.6,
-   "rr": 2.0,
-   "state": "PENDING",
+   "rr": 2.626787712970962,
+   "state": "ENTERED",
    "t_decl": "2026-10-31T04:50:37.538204+00:00",
-   "t0": "2026-10-31T04:50:37.538204+00:00",
+   "t0": "2026-10-31T05:00:00+00:00",
    "not_before": "2026-10-31T05:00:00+00:00",
    "expires": "2026-10-31T08:50:37.538204+00:00",
    "source": "binance:SOLUSDT",
@@ -32,7 +32,9 @@
    "strategy_version": "taifmarket_structure_v2",
    "cost_bps": 14.0,
    "zone": null,
-   "ambiguous": false
+   "ambiguous": false,
+   "entry_mode": "NEXT_OPEN",
+   "seen": "2026-10-31T05:00:00+00:00"
   }
  },
  "watch": {
@@ -792,10 +794,10 @@
  },
  "outbox": [],
  "last_analysis": {
-  "BTC": "2026-10-31T04:45:00+00:00",
-  "ETH": "2026-10-31T04:45:00+00:00",
+  "BTC": "2026-10-31T05:15:00+00:00",
+  "ETH": "2026-10-31T05:15:00+00:00",
   "SOL": "2026-10-31T04:45:00+00:00",
-  "GOLD": "2026-10-31T04:45:00+00:00",
+  "GOLD": "2026-10-31T05:15:00+00:00",
   "NDX": "2026-10-30T20:00:00+00:00"
  },
  "event_ids": [
@@ -1248,13 +1250,14 @@
   "SOL-047:invalid",
   "GOLD:waiting:2026-10-31T03:15:00+00:00",
   "SOL-048:setup",
-  "b02d4821-ce67-4f23-b559-e591f1f76571"
+  "b02d4821-ce67-4f23-b559-e591f1f76571",
+  "SOL-048:entered"
  ],
  "last_decision": {
-  "BTC": "BTC: NONE score=9.3",
-  "ETH": "ETH: NONE score=8.4",
+  "BTC": "BTC: NONE score=5.4",
+  "ETH": "ETH: NONE score=5.1",
   "SOL": "SOL: PENDING score=7.6 | SOL-048",
-  "GOLD": "GOLD: B score=6.7",
+  "GOLD": "GOLD: NONE score=6.0",
   "NDX": "NDX: NONE score=6.2"
  },
  "strategy_versions": {
