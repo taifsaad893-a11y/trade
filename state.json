@@ -793,15 +793,15 @@
    "Advance GDP q/q|2026-10-29T12:30:00+00:00",
    "Core PCE Price Index m/m|2026-10-29T12:30:00+00:00"
   ],
-  "calendar_attempt_v2": "2026-10-31T16:48:02.173214+00:00",
-  "calendar_success_v2": "2026-10-31T16:48:02.173214+00:00"
+  "calendar_attempt_v2": "2026-10-31T23:14:17.016328+00:00",
+  "calendar_success_v2": "2026-10-31T23:14:17.016328+00:00"
  },
  "outbox": [],
  "last_analysis": {
-  "BTC": "2026-10-31T22:30:00+00:00",
-  "ETH": "2026-10-31T22:30:00+00:00",
-  "SOL": "2026-10-31T22:30:00+00:00",
-  "GOLD": "2026-10-31T22:30:00+00:00",
+  "BTC": "2026-10-31T23:00:00+00:00",
+  "ETH": "2026-10-31T23:00:00+00:00",
+  "SOL": "2026-10-31T23:00:00+00:00",
+  "GOLD": "2026-10-31T23:00:00+00:00",
   "NDX": "2026-10-30T20:00:00+00:00"
  },
  "event_ids": [
@@ -1265,10 +1265,10 @@
   "392d4168-f251-41cf-857e-fcc518ab9260"
  ],
  "last_decision": {
-  "BTC": "BTC: NONE score=3.6",
-  "ETH": "ETH: NONE score=7.8",
-  "SOL": "SOL: NONE score=4.3",
-  "GOLD": "GOLD: B score=6.7",
+  "BTC": "BTC: NONE score=7.1",
+  "ETH": "ETH: NONE score=7.4",
+  "SOL": "SOL: NONE score=6.2",
+  "GOLD": "GOLD: NONE score=6.0",
   "NDX": "NDX: NONE score=6.2"
  },
  "strategy_versions": {
