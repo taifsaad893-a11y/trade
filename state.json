@@ -1,13 +1,6 @@
 {
  "active": {},
- "watch": {
-  "SOL": {
-   "side": 1,
-   "ts": "2026-11-01T09:10:34.791357+00:00",
-   "fingerprint": "2550cf4ad3f9",
-   "zone_p": null
-  }
- },
+ "watch": {},
  "cool": {
   "BTC": "2026-10-13T04:20:14.353187+00:00",
   "ETH": "2026-10-30T14:45:00+00:00",
@@ -792,10 +785,10 @@
  },
  "outbox": [],
  "last_analysis": {
-  "BTC": "2026-11-01T09:45:00+00:00",
-  "ETH": "2026-11-01T09:45:00+00:00",
-  "SOL": "2026-11-01T09:45:00+00:00",
-  "GOLD": "2026-11-01T09:45:00+00:00",
+  "BTC": "2026-11-01T10:15:00+00:00",
+  "ETH": "2026-11-01T10:15:00+00:00",
+  "SOL": "2026-11-01T10:15:00+00:00",
+  "GOLD": "2026-11-01T10:15:00+00:00",
   "NDX": "2026-10-30T20:00:00+00:00"
  },
  "event_ids": [
@@ -1264,10 +1257,10 @@
   "f631e500-ac16-404a-878e-2709295c4ceb"
  ],
  "last_decision": {
-  "BTC": "BTC: NONE score=4.3",
+  "BTC": "BTC: NONE score=6.9",
   "ETH": "ETH: NONE score=4.2",
-  "SOL": "SOL: NONE score=6.5",
-  "GOLD": "GOLD: NONE score=5.4",
+  "SOL": "SOL: NONE score=5.4",
+  "GOLD": "GOLD: NONE score=4.7",
   "NDX": "NDX: NONE score=6.2"
  },
  "strategy_versions": {
