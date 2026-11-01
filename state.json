@@ -791,10 +791,10 @@
  },
  "outbox": [],
  "last_analysis": {
-  "BTC": "2026-11-01T00:00:00+00:00",
-  "ETH": "2026-11-01T00:00:00+00:00",
-  "SOL": "2026-11-01T00:00:00+00:00",
-  "GOLD": "2026-11-01T00:00:00+00:00",
+  "BTC": "2026-11-01T01:00:00+00:00",
+  "ETH": "2026-11-01T01:00:00+00:00",
+  "SOL": "2026-11-01T01:00:00+00:00",
+  "GOLD": "2026-11-01T01:00:00+00:00",
   "NDX": "2026-10-30T20:00:00+00:00"
  },
  "event_ids": [
@@ -1258,9 +1258,9 @@
   "392d4168-f251-41cf-857e-fcc518ab9260"
  ],
  "last_decision": {
-  "BTC": "BTC: NONE score=6.2",
-  "ETH": "ETH: NONE score=7.2",
-  "SOL": "SOL: NONE score=5.4",
+  "BTC": "BTC: NONE score=7.6",
+  "ETH": "ETH: NONE score=7.6",
+  "SOL": "SOL: NONE score=4.4",
   "GOLD": "GOLD: NONE score=4.7",
   "NDX": "NDX: NONE score=6.2"
  },
