@@ -731,34 +731,28 @@
  "news": {
   "cal": [
    {
-    "t": "2026-10-28T18:00:00+00:00",
-    "title": "Federal Funds Rate",
-    "fc": "4.00%",
-    "prev": "4.00%"
-   },
-   {
-    "t": "2026-10-28T18:00:00+00:00",
-    "title": "FOMC Statement",
+    "t": "2026-11-03T15:16:00+00:00",
+    "title": "Congressional Elections",
     "fc": "",
     "prev": ""
    },
    {
-    "t": "2026-10-28T18:30:00+00:00",
-    "title": "FOMC Press Conference",
-    "fc": "",
-    "prev": ""
-   },
-   {
-    "t": "2026-10-29T12:30:00+00:00",
-    "title": "Advance GDP q/q",
-    "fc": "3.2%",
-    "prev": "1.5%"
-   },
-   {
-    "t": "2026-10-29T12:30:00+00:00",
-    "title": "Core PCE Price Index m/m",
+    "t": "2026-11-06T13:30:00+00:00",
+    "title": "Average Hourly Earnings m/m",
     "fc": "0.3%",
-    "prev": "0.2%"
+    "prev": "0.1%"
+   },
+   {
+    "t": "2026-11-06T13:30:00+00:00",
+    "title": "Non-Farm Employment Change",
+    "fc": "63K",
+    "prev": "29K"
+   },
+   {
+    "t": "2026-11-06T13:30:00+00:00",
+    "title": "Unemployment Rate",
+    "fc": "4.2%",
+    "prev": "4.2%"
    }
   ],
   "cal_try": "2026-10-19T19:26:11.666878+00:00",
@@ -786,15 +780,15 @@
    "Advance GDP q/q|2026-10-29T12:30:00+00:00",
    "Core PCE Price Index m/m|2026-10-29T12:30:00+00:00"
   ],
-  "calendar_attempt_v2": "2026-10-31T23:14:17.016328+00:00",
-  "calendar_success_v2": "2026-10-31T23:14:17.016328+00:00"
+  "calendar_attempt_v2": "2026-11-01T05:16:41.948932+00:00",
+  "calendar_success_v2": "2026-11-01T05:16:41.948932+00:00"
  },
  "outbox": [],
  "last_analysis": {
-  "BTC": "2026-11-01T04:30:00+00:00",
-  "ETH": "2026-11-01T04:30:00+00:00",
-  "SOL": "2026-11-01T04:30:00+00:00",
-  "GOLD": "2026-11-01T04:30:00+00:00",
+  "BTC": "2026-11-01T05:15:00+00:00",
+  "ETH": "2026-11-01T05:15:00+00:00",
+  "SOL": "2026-11-01T05:15:00+00:00",
+  "GOLD": "2026-11-01T05:15:00+00:00",
   "NDX": "2026-10-30T20:00:00+00:00"
  },
  "event_ids": [
@@ -1260,7 +1254,7 @@
   "a1d02cbc-05a5-497b-8010-976a18ce9147"
  ],
  "last_decision": {
-  "BTC": "BTC: NONE score=6.9",
+  "BTC": "BTC: NONE score=3.6",
   "ETH": "ETH: NONE score=3.6",
   "SOL": "SOL: NONE score=5.1",
   "GOLD": "GOLD: NONE score=4.7",
