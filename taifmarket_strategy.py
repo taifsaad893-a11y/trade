@@ -4,31 +4,15 @@ import os
 import pandas as pd
 
 
-STRATEGY_VERSION = "taifmarket_structure_v2"
-
-BREAK_BUFFER_ATR = 0.05
-BREAK_BODY_ATR = 0.35
-BREAK_CLOSE_EDGE = 0.35
-
-RETEST_TOUCH_ATR = 0.20
-RETEST_CLOSE_ATR = 0.03
-RETEST_BODY_ATR = 0.10
-
-BOUNCE_TOUCH_ATR = 0.25
-BOUNCE_MAX_PENETRATION_ATR = 0.35
-BOUNCE_CLOSE_ATR = 0.08
-BOUNCE_BODY_ATR = 0.15
-
-WATCH_DISTANCE_ATR = 0.35
-MAX_DIRECT_EXTENSION_ATR = 0.80
-STOP_BUFFER_ATR = 0.20
-
-
-def _utc(value):
-    t = pd.Timestamp(value)
-    if t.tzinfo is None:
-        return t.tz_localize("UTC")
-    return t.tz_convert("UTC")
+STRATEGY_VERSION = "sweep_mss_idm_demand_supply_v1"
+LOOKBACK = 48
+SWING = 2
+SWEEP_BUFFER_ATR = 0.05
+MSS_BUFFER_ATR = 0.03
+ZONE_PAD_ATR = 0.08
+STOP_BUFFER_ATR = 0.12
+MAX_ZONE_DISTANCE_ATR = 1.25
+MIN_RR = 2.0
 
 
 def _direction_name(side):
@@ -53,25 +37,6 @@ def _safe_trend(a, frame):
         return 0
 
 
-def _volume_ratio(d15):
-    if len(d15) < 22 or "v" not in d15:
-        return None
-
-    v = pd.to_numeric(d15["v"], errors="coerce")
-    previous = float(v.iloc[-21:-1].mean())
-    current = float(v.iloc[-1])
-
-    if (
-        not math.isfinite(previous)
-        or previous <= 0
-        or not math.isfinite(current)
-        or current < 0
-    ):
-        return None
-
-    return current / previous
-
-
 def _base_result(key, side, price, score, style, obs):
     return {
         "key": key,
@@ -90,562 +55,187 @@ def _base_result(key, side, price, score, style, obs):
 
 def _cost_reason(key, plan):
     try:
-        bps = float(
-            os.environ.get(
-                "ROUNDTRIP_COST_BPS_" + key,
-                os.environ.get("ROUNDTRIP_COST_BPS", "14"),
-            )
-        )
+        bps = float(os.environ.get("ROUNDTRIP_COST_BPS_" + key, os.environ.get("ROUNDTRIP_COST_BPS", "14")))
     except (TypeError, ValueError):
         return "افتراض الكلفة غير صالح"
-
     risk = abs(plan["entry"] - plan["stop"])
     if not math.isfinite(bps) or bps < 0 or risk <= 0:
         return "خطة المخاطرة غير صالحة"
-
     cost_r = plan["entry"] * bps / 10000 / risk
     if cost_r > 0.35:
         return f"الكلفة المفترضة {cost_r:.2f}R تتجاوز 0.35R"
-
     return None
 
 
-def _build_plan(key, side, entry, level, last, a15, a1, mode):
-    entry = float(entry)
-    level = float(level)
-    a1 = float(a1) if math.isfinite(float(a1)) and float(a1) > 0 else 4.0 * a15
+def _swings(d):
+    highs, lows = [], []
+    start = max(SWING, len(d) - LOOKBACK)
+    for i in range(start, len(d) - SWING):
+        h = float(d["h"].iloc[i])
+        l = float(d["l"].iloc[i])
+        if h >= float(d["h"].iloc[i-SWING:i+SWING+1].max()):
+            highs.append((i, h))
+        if l <= float(d["l"].iloc[i-SWING:i+SWING+1].min()):
+            lows.append((i, l))
+    return highs, lows
 
+
+def _find_setup(d15, a15):
+    highs, lows = _swings(d15)
+    if not highs or not lows:
+        return None
+
+    # Search recent closed candles for a liquidity sweep, then require a later MSS.
+    start = max(3, len(d15) - 14)
+    for sweep_i in range(len(d15) - 2, start - 1, -1):
+        sh = [(i, p) for i, p in highs if i < sweep_i]
+        sl = [(i, p) for i, p in lows if i < sweep_i]
+        if not sh or not sl:
+            continue
+        prior_high_i, prior_high = sh[-1]
+        prior_low_i, prior_low = sl[-1]
+        row = d15.iloc[sweep_i]
+        sweep_high = float(row["h"])
+        sweep_low = float(row["l"])
+        sweep_close = float(row["c"])
+
+        # Sell-side liquidity sweep -> bullish MSS.
+        bull_sweep = sweep_low < prior_low - SWEEP_BUFFER_ATR * a15 and sweep_close > prior_low
+        if bull_sweep:
+            internal_highs = [(i, p) for i, p in highs if prior_low_i < i < sweep_i]
+            mss_level = internal_highs[-1][1] if internal_highs else float(d15["h"].iloc[max(0, sweep_i-6):sweep_i].max())
+            for mss_i in range(sweep_i + 1, len(d15)):
+                if float(d15["c"].iloc[mss_i]) > mss_level + MSS_BUFFER_ATR * a15:
+                    # IDM = last meaningful internal low before displacement.
+                    idm_candidates = [(i, p) for i, p in lows if sweep_i < i < mss_i]
+                    idm = idm_candidates[-1][1] if idm_candidates else sweep_low
+                    # Demand = last bearish candle from sweep through MSS.
+                    zone_i = sweep_i
+                    for j in range(mss_i - 1, sweep_i - 1, -1):
+                        if float(d15["c"].iloc[j]) <= float(d15["o"].iloc[j]):
+                            zone_i = j
+                            break
+                    z = d15.iloc[zone_i]
+                    zone_low = min(float(z["o"]), float(z["l"])) - ZONE_PAD_ATR * a15
+                    zone_high = max(float(z["o"]), float(z["c"])) + ZONE_PAD_ATR * a15
+                    return {"side": 1, "sweep": prior_low, "sweep_extreme": sweep_low, "mss": mss_level, "idm": idm,
+                            "zone": [zone_low, zone_high], "sweep_i": sweep_i, "mss_i": mss_i}
+
+        # Buy-side liquidity sweep -> bearish MSS.
+        bear_sweep = sweep_high > prior_high + SWEEP_BUFFER_ATR * a15 and sweep_close < prior_high
+        if bear_sweep:
+            internal_lows = [(i, p) for i, p in lows if prior_high_i < i < sweep_i]
+            mss_level = internal_lows[-1][1] if internal_lows else float(d15["l"].iloc[max(0, sweep_i-6):sweep_i].min())
+            for mss_i in range(sweep_i + 1, len(d15)):
+                if float(d15["c"].iloc[mss_i]) < mss_level - MSS_BUFFER_ATR * a15:
+                    idm_candidates = [(i, p) for i, p in highs if sweep_i < i < mss_i]
+                    idm = idm_candidates[-1][1] if idm_candidates else sweep_high
+                    # Supply = last bullish candle from sweep through MSS.
+                    zone_i = sweep_i
+                    for j in range(mss_i - 1, sweep_i - 1, -1):
+                        if float(d15["c"].iloc[j]) >= float(d15["o"].iloc[j]):
+                            zone_i = j
+                            break
+                    z = d15.iloc[zone_i]
+                    zone_low = min(float(z["o"]), float(z["c"])) - ZONE_PAD_ATR * a15
+                    zone_high = max(float(z["o"]), float(z["h"])) + ZONE_PAD_ATR * a15
+                    return {"side": -1, "sweep": prior_high, "sweep_extreme": sweep_high, "mss": mss_level, "idm": idm,
+                            "zone": [zone_low, zone_high], "sweep_i": sweep_i, "mss_i": mss_i}
+    return None
+
+
+def _build_plan(key, setup, price, a15):
+    side = setup["side"]
+    zl, zh = setup["zone"]
+    entry = float(price)
     if side == 1:
-        if mode in ("RETEST", "BOUNCE"):
-            stop = min(
-                float(last["l"]) - 0.05 * a15,
-                level - STOP_BUFFER_ATR * a15,
-            )
-        else:
-            stop = min(
-                float(last["l"]) - 0.10 * a15,
-                level - STOP_BUFFER_ATR * a15,
-            )
+        stop = min(setup["sweep_extreme"], zl) - STOP_BUFFER_ATR * a15
         risk = entry - stop
     else:
-        if mode in ("RETEST", "BOUNCE"):
-            stop = max(
-                float(last["h"]) + 0.05 * a15,
-                level + STOP_BUFFER_ATR * a15,
-            )
-        else:
-            stop = max(
-                float(last["h"]) + 0.10 * a15,
-                level + STOP_BUFFER_ATR * a15,
-            )
+        stop = max(setup["sweep_extreme"], zh) + STOP_BUFFER_ATR * a15
         risk = stop - entry
-
-    if not math.isfinite(risk) or risk <= 0:
+    if not math.isfinite(risk) or risk <= 0 or risk < 0.18 * a15:
         return None, "مسافة الوقف غير صالحة"
-    if risk < 0.20 * a15:
-        return None, "الوقف قريب جداً"
-    if risk > 2.5 * a1:
-        return None, "الوقف واسع جداً"
-
     plan = {
         "entry": entry,
         "stop": float(stop),
-        "tps": [
-            float(entry + side * risk),
-            float(entry + side * risk * 2.0),
-            float(entry + side * risk * 3.0),
-        ],
-        "rr": 2.0,
+        "tps": [float(entry + side * risk * MIN_RR), float(entry + side * risk * 3.0)],
+        "rr": MIN_RR,
         "arithmetic_extensions": True,
     }
-
     reason = _cost_reason(key, plan)
-    if reason:
-        return None, reason
-
-    return plan, None
-
-
-def _ema_context(a, d15, side, price):
-    try:
-        if len(d15) < 50:
-            return None
-        ema20 = float(a.ema(d15["c"], 20).iloc[-1])
-        ema50 = float(a.ema(d15["c"], 50).iloc[-1])
-    except Exception:
-        return None
-
-    if not all(math.isfinite(x) for x in (ema20, ema50)):
-        return None
-
-    if side == 1:
-        return price > ema20 > ema50
-    return price < ema20 < ema50
-
-
-def _score_quality(structure_score, side, trend_1h, trend_4h, ema_ok, vr):
-    score = float(structure_score)
-
-    if trend_1h == side:
-        score += 0.8
-    elif trend_1h == -side:
-        score -= 0.5
-
-    if trend_4h == side:
-        score += 0.6
-    elif trend_4h == -side:
-        score -= 0.3
-
-    if ema_ok is True:
-        score += 0.5
-    elif ema_ok is False:
-        score -= 0.2
-
-    if vr is not None:
-        if vr >= 1.50:
-            score += 0.8
-        elif vr >= 1.00:
-            score += 0.4
-        elif vr < 0.65:
-            score -= 0.3
-
-    return round(max(0.0, min(10.0, score)), 1)
-
-
-def _sr_levels(a, fr, a15, a1):
-    levels = []
-
-    try:
-        for zone in a.sr_multi(fr, 0.35 * a1):
-            p = float(zone["p"])
-            if math.isfinite(p):
-                levels.append((p, int(zone.get("w", 1)), "multi-TF"))
-    except Exception:
-        pass
-
-    d15 = fr["15m"]
-    d1 = fr.get("1h")
-
-    if len(d15) >= 22:
-        base = d15.iloc[-22:-2]
-        levels.extend(
-            [
-                (float(base["l"].min()), 3, "15m support"),
-                (float(base["h"].max()), 3, "15m resistance"),
-            ]
-        )
-
-    if d1 is not None and len(d1) >= 12:
-        base1 = d1.iloc[-12:-1]
-        levels.extend(
-            [
-                (float(base1["l"].min()), 4, "1h support"),
-                (float(base1["h"].max()), 4, "1h resistance"),
-            ]
-        )
-
-    deduped = []
-    for p, weight, source in sorted(levels, key=lambda item: (-item[1], item[0])):
-        if any(abs(p - existing[0]) <= 0.08 * a15 for existing in deduped):
-            continue
-        deduped.append((p, weight, source))
-
-    return deduped
-
-
-def _find_bounce(d15, levels, a15):
-    last = d15.iloc[-1]
-    price = float(last["c"])
-    opening = float(last["o"])
-    high = float(last["h"])
-    low = float(last["l"])
-    span = max(high - low, 1e-12)
-    body = abs(price - opening)
-
-    long_candidates = []
-    short_candidates = []
-
-    for level, weight, source in levels:
-        # Support bounce: level is at/below current close, candle probes it,
-        # then closes clearly back above it with a bullish 15m confirmation.
-        if level <= price + BOUNCE_TOUCH_ATR * a15:
-            touched = low <= level + BOUNCE_TOUCH_ATR * a15
-            held = low >= level - BOUNCE_MAX_PENETRATION_ATR * a15
-            confirmed = (
-                price >= level + BOUNCE_CLOSE_ATR * a15
-                and price > opening
-                and body >= BOUNCE_BODY_ATR * a15
-                and (price - low) / span >= 0.60
-            )
-            if touched and held and confirmed:
-                distance = abs(price - level) / a15
-                long_candidates.append((weight - distance, level, source))
-
-        # Resistance bounce: mirror image of support bounce.
-        if level >= price - BOUNCE_TOUCH_ATR * a15:
-            touched = high >= level - BOUNCE_TOUCH_ATR * a15
-            held = high <= level + BOUNCE_MAX_PENETRATION_ATR * a15
-            confirmed = (
-                price <= level - BOUNCE_CLOSE_ATR * a15
-                and price < opening
-                and body >= BOUNCE_BODY_ATR * a15
-                and (high - price) / span >= 0.60
-            )
-            if touched and held and confirmed:
-                distance = abs(price - level) / a15
-                short_candidates.append((weight - distance, level, source))
-
-    best_long = max(long_candidates, default=None)
-    best_short = max(short_candidates, default=None)
-
-    if best_long and best_short:
-        return (1, best_long[1], best_long[2]) if best_long[0] >= best_short[0] else (-1, best_short[1], best_short[2])
-    if best_long:
-        return 1, best_long[1], best_long[2]
-    if best_short:
-        return -1, best_short[1], best_short[2]
-    return None
+    return (None, reason) if reason else (plan, None)
 
 
 def analyze_sequence(a, st, key, fr, btc_dir):
-    """Runtime strategy used by scanner.py.
+    """15m Sweep -> MSS -> IDM -> Demand/Supply strategy.
 
-    Entry is structure-first:
-      * clear 15m breakout,
-      * breakout + retest,
-      * clear S/R bounce with closed-15m confirmation.
-
-    1H, 4H, EMA and volume are quality/score context only.  They never veto
-    an otherwise valid structural entry, and 1H RANGE is never a no-trade gate.
+    1H/4H are context/score only and never veto a valid 15m setup.
+    Entry is allowed only after liquidity sweep + confirmed MSS, with price
+    returning to or remaining close to the originating demand/supply zone.
     """
-
     st.setdefault("confirmation_setups", {}).pop(key, None)
-
-    d15 = fr["15m"]
+    d15 = fr.get("15m")
     d1 = fr.get("1h")
     d4 = fr.get("4h")
-
-    if d15 is None or len(d15) < 25:
+    if d15 is None or len(d15) < 30:
         price = float(d15["c"].iloc[-1]) if d15 is not None and len(d15) else 0.0
-        return _base_result(
-            key,
-            1,
-            price,
-            0.0,
-            "Structure15m",
-            "بيانات 15m غير كافية للتحليل.",
-        )
+        r = _base_result(key, 1, price, 0.0, "SweepMSS", "بيانات 15m غير كافية لاستراتيجية Sweep + MSS + IDM.")
+        r["miss"] = ["بيانات 15m غير كافية"]
+        return r
 
-    last = d15.iloc[-1]
-    prev = d15.iloc[-2]
-    price = float(last["c"])
-
+    price = float(d15["c"].iloc[-1])
     try:
         a15 = float(a.atr(d15).iloc[-1])
     except Exception:
         a15 = float("nan")
-
     if not math.isfinite(a15) or a15 <= 0:
-        return _base_result(
-            key,
-            1,
-            price,
-            0.0,
-            "Structure15m",
-            "تعذر حساب ATR للـ15m.",
-        )
+        r = _base_result(key, 1, price, 0.0, "SweepMSS", "تعذر حساب ATR للـ15m.")
+        r["miss"] = ["ATR غير متوفر"]
+        return r
 
-    try:
-        a1 = float(a.atr(d1).iloc[-1]) if d1 is not None and len(d1) >= 15 else 4.0 * a15
-    except Exception:
-        a1 = 4.0 * a15
+    t1 = _safe_trend(a, d1)
+    t4 = _safe_trend(a, d4)
+    setup = _find_setup(d15, a15)
+    if setup is None:
+        side = t1 if t1 in (-1, 1) else (t4 if t4 in (-1, 1) else 1)
+        r = _base_result(key, side, price, 3.5, "SweepMSSWatch",
+            "Sweep + MSS + IDM | لا يوجد تسلسل مكتمل حالياً.\n"
+            "ننتظر Sweep للسيولة ثم MSS مؤكد، وبعدها الرجوع إلى Demand/Supply.")
+        r["miss"] = ["لا يوجد Sweep + MSS مكتمل"]
+        return r
 
-    trend_1h = _safe_trend(a, d1)
-    trend_4h = _safe_trend(a, d4)
-    vr = _volume_ratio(d15)
-
-    # Breakout levels are derived entirely from closed 15m structure.
-    base = d15.iloc[-22:-2]
-    high = float(base["h"].max())
-    low = float(base["l"].min())
-
-    break_buffer = BREAK_BUFFER_ATR * a15
-    touch_buffer = RETEST_TOUCH_ATR * a15
-    close_buffer = RETEST_CLOSE_ATR * a15
-
-    previous_close = float(prev["c"])
-    opening = float(last["o"])
-    high_now = float(last["h"])
-    low_now = float(last["l"])
-    candle_span = max(high_now - low_now, 1e-12)
-    body = abs(price - opening)
-    body_atr = body / a15
-
-    prev_long_break = previous_close > high + break_buffer
-    prev_short_break = previous_close < low - break_buffer
-
-    fresh_long = price > high + break_buffer and previous_close <= high + break_buffer
-    fresh_short = price < low - break_buffer and previous_close >= low - break_buffer
-
-    clear_long_breakout = (
-        fresh_long
-        and price > opening
-        and body_atr >= BREAK_BODY_ATR
-        and (high_now - price) / candle_span <= BREAK_CLOSE_EDGE
+    side = setup["side"]
+    zl, zh = setup["zone"]
+    in_zone = zl <= price <= zh
+    distance = 0.0 if in_zone else (zl - price if price < zl else price - zh) / a15
+    near_zone = in_zone or distance <= MAX_ZONE_DISTANCE_ATR
+    context = (1.0 if t1 == side else (-0.4 if t1 == -side else 0.0)) + (0.6 if t4 == side else (-0.2 if t4 == -side else 0.0))
+    score = max(0.0, min(10.0, 8.0 + context + (0.4 if in_zone else 0.0)))
+    zone_name = "Demand" if side == 1 else "Supply"
+    obs = (
+        "Sweep + MSS + IDM | 15m\n"
+        f"الاتجاه: {_direction_name(side)} | Sweep: {setup['sweep']:,.2f}\n"
+        f"MSS: {setup['mss']:,.2f} | IDM: {setup['idm']:,.2f}\n"
+        f"{zone_name}: {zl:,.2f} - {zh:,.2f}\n"
+        f"1H: {_trend_label(t1)} | 4H: {_trend_label(t4)} (سياق فقط)"
     )
-    clear_short_breakout = (
-        fresh_short
-        and price < opening
-        and body_atr >= BREAK_BODY_ATR
-        and (price - low_now) / candle_span <= BREAK_CLOSE_EDGE
-    )
+    r = _base_result(key, side, price, score, "SweepMSSIDM", obs)
+    r.update(zone=[float(zl), float(zh)], zone_p=float((zl + zh) / 2), a1=float(a15 * 4), ext=round(float(distance), 2))
 
-    clean_long_retest = (
-        prev_long_break
-        and low_now <= high + touch_buffer
-        and price >= high + close_buffer
-        and price > opening
-        and body_atr >= RETEST_BODY_ATR
-    )
-    clean_short_retest = (
-        prev_short_break
-        and high_now >= low - touch_buffer
-        and price <= low - close_buffer
-        and price < opening
-        and body_atr >= RETEST_BODY_ATR
-    )
+    if not near_zone:
+        r.update(tier="ARMED", cond=f"انتظار رجوع السعر إلى {zone_name} {zl:,.2f}-{zh:,.2f}",
+                 inv=f"إبطال إذا كسر السعر Sweep extreme {setup['sweep_extreme']:,.2f} بعكس الصفقة.")
+        r["miss"] = [f"السعر بعيد عن {zone_name}; ننتظر retrace"]
+        return r
 
-    levels = _sr_levels(a, fr, a15, a1)
-    bounce = _find_bounce(d15, levels, a15)
-
-    candidates = []
-
-    if clean_long_retest:
-        candidates.append((3, 1, high, "BreakoutRetest", "RETEST", 7.4, "Breakout + Retest"))
-    if clean_short_retest:
-        candidates.append((3, -1, low, "BreakoutRetest", "RETEST", 7.4, "Breakout + Retest"))
-    if clear_long_breakout:
-        candidates.append((2, 1, high, "ClearBreakout", "BREAKOUT", 7.2, "Clear Breakout"))
-    if clear_short_breakout:
-        candidates.append((2, -1, low, "ClearBreakout", "BREAKOUT", 7.2, "Clear Breakout"))
-    if bounce is not None:
-        side, level, source = bounce
-        candidates.append((1, side, level, "SupportResistanceBounce", "BOUNCE", 7.0, f"S/R Bounce ({source})"))
-
-    if candidates:
-        _, side, level, style, mode, structure_score, setup_name = max(candidates, key=lambda item: item[0])
-
-        extension = max(0.0, (price - level) * side / a15)
-        ema_ok = _ema_context(a, d15, side, price)
-        score = _score_quality(
-            structure_score,
-            side,
-            trend_1h,
-            trend_4h,
-            ema_ok,
-            vr,
-        )
-
-        volume_text = "غير متوفر" if vr is None else f"{vr:.2f}x"
-        ema_text = "غير متوفر" if ema_ok is None else ("متوافق" if ema_ok else "غير متوافق")
-        obs = (
-            "Taifmarket | Structure-first 15m\n"
-            f"الإشارة: {setup_name} | الاتجاه: {_direction_name(side)}\n"
-            f"1H: {_trend_label(trend_1h)} | 4H: {_trend_label(trend_4h)}\n"
-            f"EMA: {ema_text} | Volume: {volume_text}\n"
-            f"المستوى: {level:,.2f} | جسم 15m: {body_atr:.2f} ATR\n"
-            "1H/4H/EMA/Volume عوامل جودة وScore فقط؛ لا تمنع الدخول."
-        )
-
-        res = _base_result(key, side, price, score, style, obs)
-        res.update(
-            ext=round(extension, 2),
-            zone_p=float(level),
-            a1=float(a1),
-        )
-
-        if mode == "BREAKOUT" and extension > MAX_DIRECT_EXTENSION_ATR:
-            # The breakout is structurally valid but too extended for a direct
-            # fill. Arm the broken level for a retest instead of chasing.
-            plan, reason = _build_plan(
-                key,
-                side,
-                level,
-                level,
-                last,
-                a15,
-                a1,
-                "RETEST",
-            )
-            if plan and reason is None:
-                res.update(
-                    tier="ARMED",
-                    style="BreakoutRetest",
-                    plan=plan,
-                    zone=[
-                        float(level - RETEST_TOUCH_ATR * a15),
-                        float(level + RETEST_TOUCH_ATR * a15),
-                    ],
-                )
-                res["obs"] += "\n🟠 الكسر واضح لكنه ممتد؛ تم تسليح Retest بدل مطاردة السعر."
-                return res
-            res["miss"] = [reason or "تعذر بناء خطة Retest"]
-            return res
-
-        plan, reason = _build_plan(
-            key,
-            side,
-            price,
-            level,
-            last,
-            a15,
-            a1,
-            mode,
-        )
-        if plan and reason is None:
-            res.update(tier="A", plan=plan)
-            res["obs"] += "\n✅ تأكيد 15m مكتمل؛ الإشارة صالحة للدخول."
-        else:
-            res["miss"] = [reason or "تعذر بناء خطة الدخول"]
-            res["obs"] += "\nسبب عدم الدخول: " + res["miss"][0]
-
-        if getattr(a, "SPOT_ONLY", False) and res["side"] == -1:
-            res["tier"] = None
-            res["miss"] = ["SHORT disabled by SPOT_ONLY"]
-            res["obs"] += "\nSHORT ملغي لأن SPOT_ONLY مفعّل."
-
-        return res
-
-    # Breakout exists but the 15m confirmation is not strong enough for a
-    # direct entry: arm a retest.  Higher-timeframe trend still does not gate it.
-    arm_options = []
-    if fresh_long or prev_long_break:
-        arm_options.append((1, high))
-    if fresh_short or prev_short_break:
-        arm_options.append((-1, low))
-
-    if arm_options:
-        side, level = min(
-            arm_options,
-            key=lambda item: abs(price - item[1]),
-        )
-        ema_ok = _ema_context(a, d15, side, price)
-        score = _score_quality(
-            5.8,
-            side,
-            trend_1h,
-            trend_4h,
-            ema_ok,
-            vr,
-        )
-        plan, reason = _build_plan(
-            key,
-            side,
-            level,
-            level,
-            last,
-            a15,
-            a1,
-            "RETEST",
-        )
-
-        obs = (
-            "Taifmarket | Breakout detected, waiting 15m retest confirmation\n"
-            f"الاتجاه: {_direction_name(side)} | المستوى: {level:,.2f}\n"
-            f"1H: {_trend_label(trend_1h)} | 4H: {_trend_label(trend_4h)}\n"
-            "1H/4H/EMA/Volume جودة فقط وليست شروط دخول."
-        )
-        res = _base_result(key, side, price, score, "BreakoutRetest", obs)
-
-        if plan and reason is None:
-            res.update(
-                tier="ARMED",
-                plan=plan,
-                zone=[
-                    float(level - RETEST_TOUCH_ATR * a15),
-                    float(level + RETEST_TOUCH_ATR * a15),
-                ],
-            )
-            return res
-
-        res["miss"] = [reason or "تعذر تسليح Retest"]
-        return res
-
-    # Early watch is informational only; it does not prevent future entries.
-    long_distance = high - price
-    short_distance = price - low
-    approaching_long = 0 <= long_distance <= WATCH_DISTANCE_ATR * a15
-    approaching_short = 0 <= short_distance <= WATCH_DISTANCE_ATR * a15
-
-    if approaching_long or approaching_short:
-        if approaching_long and approaching_short:
-            side = 1 if long_distance <= short_distance else -1
-        else:
-            side = 1 if approaching_long else -1
-
-        level = high if side == 1 else low
-        trigger = level + side * break_buffer
-        ema_ok = _ema_context(a, d15, side, price)
-        score = _score_quality(
-            4.8,
-            side,
-            trend_1h,
-            trend_4h,
-            ema_ok,
-            vr,
-        )
-
-        res = _base_result(
-            key,
-            side,
-            price,
-            score,
-            "StructureWatch",
-            (
-                "Taifmarket | السعر قريب من كسر 15m\n"
-                f"الاتجاه المحتمل: {_direction_name(side)} | المستوى: {level:,.2f}\n"
-                f"1H: {_trend_label(trend_1h)} | 4H: {_trend_label(trend_4h)}\n"
-                "الساعة لا تمنع الإشارة؛ ننتظر تأكيد 15m فقط."
-            ),
-        )
-        res.update(
-            tier="B",
-            cond=f"إغلاق 15m {'فوق' if side == 1 else 'تحت'} {trigger:,.2f} أو Retest/Bounce مؤكد.",
-            inv="فشل تأكيد 15m أو كسر واضح بالاتجاه المعاكس.",
-        )
-        return res
-
-    # No structural 15m setup right now.  RANGE is reported as context only.
-    side = 1
-    if trend_1h in (-1, 1):
-        side = trend_1h
-    elif trend_4h in (-1, 1):
-        side = trend_4h
-
-    ema_ok = _ema_context(a, d15, side, price)
-    score = _score_quality(
-        3.5,
-        side,
-        trend_1h,
-        trend_4h,
-        ema_ok,
-        vr,
-    )
-
-    res = _base_result(
-        key,
-        side,
-        price,
-        score,
-        "Structure15m",
-        (
-            "Taifmarket | لا توجد إشارة دخول 15m مكتملة حالياً.\n"
-            f"1H: {_trend_label(trend_1h)} | 4H: {_trend_label(trend_4h)}\n"
-            "المطلوب للدخول: Breakout واضح، أو Breakout+Retest، "
-            "أو Bounce واضح من Support/Resistance مع تأكيد 15m.\n"
-            "1H/4H/EMA/Volume عوامل جودة وScore فقط."
-        ),
-    )
-    res["miss"] = ["لا يوجد تأكيد هيكلي 15m مؤهل حالياً"]
-
-    return res
+    plan, reason = _build_plan(key, setup, price, a15)
+    if plan and reason is None:
+        r.update(tier="A", plan=plan)
+        r["obs"] += "\n✅ Sweep + MSS مكتمل وIDM محدد والسعر داخل/قريب من الزون؛ R:R الأدنى 1:2."
+    else:
+        r["miss"] = [reason or "تعذر بناء خطة الدخول"]
+    if getattr(a, "SPOT_ONLY", False) and side == -1:
+        r["tier"] = None
+        r["miss"] = ["SHORT disabled by SPOT_ONLY"]
+    return r
