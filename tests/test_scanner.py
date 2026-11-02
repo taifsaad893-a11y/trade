@@ -32,14 +32,10 @@ def base_frames(trend_1h=0, trend_4h=0):
 
 def long_setup():
     rows = []
-    # Old range with equal-ish lows around 99 creates sell-side liquidity.
     for i in range(45):
         rows.append({"o":100.0,"h":100.8,"l":99.0 if i in (32, 38) else 99.4,"c":100.0,"v":100})
-    # Sweep below liquidity, close back above it.
     rows.append({"o":99.7,"h":100.0,"l":98.6,"c":99.4,"v":140})
-    # Displacement / MSS above recent internal high.
     rows.append({"o":99.4,"h":101.5,"l":99.3,"c":101.2,"v":180})
-    # Pullback into bullish demand / IDM zone, then bullish reaction.
     rows.append({"o":101.1,"h":101.2,"l":99.5,"c":99.8,"v":110})
     rows.append({"o":99.8,"h":100.7,"l":99.6,"c":100.5,"v":130})
     return frame(rows)
@@ -72,32 +68,39 @@ class SweepMssIdmDemandSupplyTests(unittest.TestCase):
         d1, d4 = base_frames(t1, t4)
         return analyze_sequence(self.agent, {}, "BTC", {"15m": d15, "1h": d1, "4h": d4}, None)
 
+    def assert_tradeable_contract(self, result):
+        self.assertIn(result["tier"], ("A", "ARMED"))
+        self.assertIn("plan", result)
+        plan = result["plan"]
+        self.assertEqual(len(plan["tps"]), 3)
+        self.assertGreaterEqual(plan["rr"], 2.0)
+
     def test_long_sequence_detected(self):
         result = self.analyze(long_setup())
         self.assertEqual(result["side"], 1)
-        self.assertIn(result["tier"], ("A", "ARMED"))
+        self.assert_tradeable_contract(result)
         self.assertIn("Sweep", result["obs"])
         self.assertIn("MSS", result["obs"])
         self.assertIn("IDM", result["obs"])
-        self.assertTrue("Demand" in result["obs"] or "DEMAND" in result["obs"])
+        self.assertIn("Demand", result["obs"])
 
     def test_short_sequence_detected(self):
         result = self.analyze(short_setup())
         self.assertEqual(result["side"], -1)
-        self.assertIn(result["tier"], ("A", "ARMED"))
+        self.assert_tradeable_contract(result)
         self.assertIn("Sweep", result["obs"])
         self.assertIn("MSS", result["obs"])
-        self.assertTrue("Supply" in result["obs"] or "SUPPLY" in result["obs"])
+        self.assertIn("Supply", result["obs"])
 
     def test_higher_timeframe_context_does_not_veto_valid_long(self):
         result = self.analyze(long_setup(), -1, -1)
         self.assertEqual(result["side"], 1)
-        self.assertIn(result["tier"], ("A", "ARMED"))
+        self.assert_tradeable_contract(result)
         self.assertIn("1H", result["obs"])
 
     def test_strategy_version(self):
         result = self.analyze(long_setup())
-        self.assertEqual(result["strategy_version"], "sweep_mss_idm_demand_supply_v1")
+        self.assertEqual(result["strategy_version"], "sweep_mss_idm_demand_supply_v2")
 
 
 if __name__ == "__main__":
