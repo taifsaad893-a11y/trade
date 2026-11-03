@@ -412,6 +412,12 @@ def manage(st, sp, fr, now, a):
                     )
                     return
 
+            risk = (entry - sp["stop0"]) * side
+            rr_tp1 = (sp["tps"][0] - entry) * side / risk
+            if rr_tp1 + 1e-9 < 1.5:
+                sp["seen"] = ts.isoformat()
+                continue
+
             sp.update(
                 entry=entry,
                 state="ENTERED",
@@ -443,7 +449,7 @@ def manage(st, sp, fr, now, a):
                 f"TP1 {a.fmt(sp['tps'][0])} | "
                 f"TP2 {a.fmt(sp['tps'][1])} | "
                 f"TP3 {a.fmt(sp['tps'][2])}\n"
-                f"R:R إلى TP2: {sp['rr']:.2f}",
+                f"R:R إلى TP1: {rr_tp1:.2f} | TP2: {sp['rr']:.2f}",
                 sp["id"] + ":entered",
             )
 
