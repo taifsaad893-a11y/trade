@@ -37,46 +37,7 @@
    ],
    "ambiguous": false,
    "entry_mode": "NEXT_OPEN",
-   "seen": "2026-11-03T20:30:00+00:00"
-  },
-  "BTC": {
-   "id": "BTC-057",
-   "key": "BTC",
-   "side": -1,
-   "style": "SweepMSSIDM",
-   "tf": "15m",
-   "entry": 77610.56,
-   "reference_entry": 77526.01,
-   "stop": 77928.38428571429,
-   "stop0": 77928.38428571429,
-   "tps": [
-    76721.26142857141,
-    76318.88714285711,
-    75916.51285714282
-   ],
-   "hits": [
-    false,
-    false,
-    false
-   ],
-   "score": 8.0,
-   "rr": 4.064109997887443,
-   "state": "ENTERED",
-   "t_decl": "2026-11-03T19:22:16.467776+00:00",
-   "t0": "2026-11-03T19:30:00+00:00",
-   "not_before": "2026-11-03T19:30:00+00:00",
-   "expires": "2026-11-03T23:22:16.467776+00:00",
-   "source": "binance:BTCUSDT",
-   "engine_version": "paper-v2",
-   "strategy_version": "sweep_mss_idm_demand_supply_v2",
-   "cost_bps": 14.0,
-   "zone": [
-    77655.81628571429,
-    77907.06371428572
-   ],
-   "ambiguous": false,
-   "entry_mode": "NEXT_OPEN",
-   "seen": "2026-11-03T20:30:00+00:00"
+   "seen": "2026-11-03T21:15:00+00:00"
   },
   "ETH": {
    "id": "ETH-058",
@@ -115,7 +76,7 @@
    ],
    "ambiguous": false,
    "entry_mode": "NEXT_OPEN",
-   "seen": "2026-11-03T20:30:00+00:00"
+   "seen": "2026-11-03T21:15:00+00:00"
   },
   "NDX": {
    "id": "NDX-059",
@@ -157,7 +118,7 @@
  },
  "watch": {},
  "cool": {
-  "BTC": "2026-10-13T04:20:14.353187+00:00",
+  "BTC": "2026-11-03T21:00:00+00:00",
   "ETH": "2026-11-03T09:15:00+00:00",
   "SOL": "2026-11-03T14:15:00+00:00",
   "GOLD": "2026-10-14T22:53:48.396225+00:00",
@@ -1055,6 +1016,50 @@
    "exit": "STOP",
    "t_close": "2026-11-03T14:15:00+00:00",
    "exit_price": 93.04908571428571
+  },
+  {
+   "id": "BTC-057",
+   "key": "BTC",
+   "side": -1,
+   "style": "SweepMSSIDM",
+   "tf": "15m",
+   "entry": 77610.56,
+   "reference_entry": 77526.01,
+   "stop": 77928.38428571429,
+   "stop0": 77928.38428571429,
+   "tps": [
+    76721.26142857141,
+    76318.88714285711,
+    75916.51285714282
+   ],
+   "hits": [
+    false,
+    false,
+    false
+   ],
+   "score": 8.0,
+   "rr": 4.064109997887443,
+   "state": "CLOSED",
+   "t_decl": "2026-11-03T19:22:16.467776+00:00",
+   "t0": "2026-11-03T19:30:00+00:00",
+   "not_before": "2026-11-03T19:30:00+00:00",
+   "expires": "2026-11-03T23:22:16.467776+00:00",
+   "source": "binance:BTCUSDT",
+   "engine_version": "paper-v2",
+   "strategy_version": "sweep_mss_idm_demand_supply_v2",
+   "cost_bps": 14.0,
+   "zone": [
+    77655.81628571429,
+    77907.06371428572
+   ],
+   "ambiguous": false,
+   "entry_mode": "NEXT_OPEN",
+   "seen": "2026-11-03T20:45:00+00:00",
+   "r": -1.3419,
+   "gross_r": -1.0,
+   "exit": "STOP",
+   "t_close": "2026-11-03T21:00:00+00:00",
+   "exit_price": 77928.38428571429
   }
  ],
  "n": 59,
@@ -1119,7 +1124,7 @@
  "last_analysis": {
   "BTC": "2026-11-03T19:15:00+00:00",
   "ETH": "2026-11-03T19:15:00+00:00",
-  "SOL": "2026-11-03T20:45:00+00:00",
+  "SOL": "2026-11-03T21:30:00+00:00",
   "GOLD": "2026-11-02T00:30:00+00:00",
   "NDX": "2026-11-03T20:45:00+00:00"
  },
@@ -1629,7 +1634,8 @@
   "ETH-058:setup",
   "BTC-057:entered",
   "ETH-058:entered",
-  "NDX-059:setup"
+  "NDX-059:setup",
+  "BTC-057:closed"
  ],
  "last_decision": {
   "BTC": "BTC: PENDING score=8.0 | BTC-057",
