@@ -37,7 +37,7 @@
    ],
    "ambiguous": false,
    "entry_mode": "NEXT_OPEN",
-   "seen": "2026-11-03T20:00:00+00:00"
+   "seen": "2026-11-03T20:30:00+00:00"
   },
   "BTC": {
    "id": "BTC-057",
@@ -76,7 +76,7 @@
    ],
    "ambiguous": false,
    "entry_mode": "NEXT_OPEN",
-   "seen": "2026-11-03T20:00:00+00:00"
+   "seen": "2026-11-03T20:30:00+00:00"
   },
   "ETH": {
    "id": "ETH-058",
@@ -115,7 +115,44 @@
    ],
    "ambiguous": false,
    "entry_mode": "NEXT_OPEN",
-   "seen": "2026-11-03T20:00:00+00:00"
+   "seen": "2026-11-03T20:30:00+00:00"
+  },
+  "NDX": {
+   "id": "NDX-059",
+   "key": "NDX",
+   "side": -1,
+   "style": "SweepMSSIDM",
+   "tf": "15m",
+   "entry": 28186.046875,
+   "reference_entry": 28186.046875,
+   "stop": 28304.458677455357,
+   "stop0": 28304.458677455357,
+   "tps": [
+    27949.223270089286,
+    27830.81146763393,
+    27712.39966517857
+   ],
+   "hits": [
+    false,
+    false,
+    false
+   ],
+   "score": 9.6,
+   "rr": 3.0,
+   "state": "PENDING",
+   "t_decl": "2026-11-03T20:59:21.951142+00:00",
+   "t0": "2026-11-03T20:59:21.951142+00:00",
+   "not_before": "2026-11-03T21:00:00+00:00",
+   "expires": "2026-11-04T00:59:21.951142+00:00",
+   "source": "yahoo:^NDX",
+   "engine_version": "paper-v2",
+   "strategy_version": "sweep_mss_idm_demand_supply_v2",
+   "cost_bps": 14.0,
+   "zone": [
+    28249.001294642858,
+    28298.258470982142
+   ],
+   "ambiguous": false
   }
  },
  "watch": {},
@@ -1020,7 +1057,7 @@
    "exit_price": 93.04908571428571
   }
  ],
- "n": 58,
+ "n": 59,
  "last_report": "2026-10-16T21:08:50.332805+00:00",
  "news": {
   "cal": [
@@ -1082,9 +1119,9 @@
  "last_analysis": {
   "BTC": "2026-11-03T19:15:00+00:00",
   "ETH": "2026-11-03T19:15:00+00:00",
-  "SOL": "2026-11-03T20:15:00+00:00",
+  "SOL": "2026-11-03T20:45:00+00:00",
   "GOLD": "2026-11-02T00:30:00+00:00",
-  "NDX": "2026-11-03T20:15:00+00:00"
+  "NDX": "2026-11-03T20:45:00+00:00"
  },
  "event_ids": [
   "b8203e61-129a-4d6d-96b1-bdea07954867",
@@ -1591,14 +1628,15 @@
   "BTC-057:setup",
   "ETH-058:setup",
   "BTC-057:entered",
-  "ETH-058:entered"
+  "ETH-058:entered",
+  "NDX-059:setup"
  ],
  "last_decision": {
   "BTC": "BTC: PENDING score=8.0 | BTC-057",
   "ETH": "ETH: PENDING score=7.6 | ETH-058",
   "SOL": "SOL: NONE score=3.5",
   "GOLD": "GOLD: PENDING score=7.8 | GOLD-050",
-  "NDX": "NDX: NONE score=9.6"
+  "NDX": "NDX: PENDING score=9.6 | NDX-059"
  },
  "strategy_versions": {
   "GOLD": "sequence_v1",
