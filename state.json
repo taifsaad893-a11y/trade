@@ -1,44 +1,5 @@
 {
  "active": {
-  "GOLD": {
-   "id": "GOLD-050",
-   "key": "GOLD",
-   "side": 1,
-   "style": "SweepMSSIDM",
-   "tf": "15m",
-   "entry": 3895.09198,
-   "reference_entry": 3898.74283,
-   "stop": 3895.09198,
-   "stop0": 3865.029895714286,
-   "tps": [
-    3966.1686985714286,
-    3999.881632857143,
-    4033.594567142857
-   ],
-   "hits": [
-    true,
-    false,
-    false
-   ],
-   "score": 7.8,
-   "rr": 3.4857747008227107,
-   "state": "ENTERED",
-   "t_decl": "2026-11-02T00:37:44.687417+00:00",
-   "t0": "2026-11-02T00:45:00+00:00",
-   "not_before": "2026-11-02T00:45:00+00:00",
-   "expires": "2026-11-02T04:37:44.687417+00:00",
-   "source": "twelve:XAU/USD",
-   "engine_version": "paper-v2",
-   "strategy_version": "sweep_mss_idm_demand_supply_v2",
-   "cost_bps": 14.0,
-   "zone": [
-    3865.6246062857144,
-    3895.5956137142857
-   ],
-   "ambiguous": false,
-   "entry_mode": "NEXT_OPEN",
-   "seen": "2026-11-04T00:00:00+00:00"
-  },
   "ETH": {
    "id": "ETH-058",
    "key": "ETH",
@@ -76,44 +37,7 @@
    ],
    "ambiguous": false,
    "entry_mode": "NEXT_OPEN",
-   "seen": "2026-11-04T00:00:00+00:00"
-  },
-  "NDX": {
-   "id": "NDX-059",
-   "key": "NDX",
-   "side": -1,
-   "style": "SweepMSSIDM",
-   "tf": "15m",
-   "entry": 28186.046875,
-   "reference_entry": 28186.046875,
-   "stop": 28304.458677455357,
-   "stop0": 28304.458677455357,
-   "tps": [
-    27949.223270089286,
-    27830.81146763393,
-    27712.39966517857
-   ],
-   "hits": [
-    false,
-    false,
-    false
-   ],
-   "score": 9.6,
-   "rr": 3.0,
-   "state": "PENDING",
-   "t_decl": "2026-11-03T20:59:21.951142+00:00",
-   "t0": "2026-11-03T20:59:21.951142+00:00",
-   "not_before": "2026-11-03T21:00:00+00:00",
-   "expires": "2026-11-04T00:59:21.951142+00:00",
-   "source": "yahoo:^NDX",
-   "engine_version": "paper-v2",
-   "strategy_version": "sweep_mss_idm_demand_supply_v2",
-   "cost_bps": 14.0,
-   "zone": [
-    28249.001294642858,
-    28298.258470982142
-   ],
-   "ambiguous": false
+   "seen": "2026-11-04T01:15:00+00:00"
   }
  },
  "watch": {},
@@ -121,7 +45,7 @@
   "BTC": "2026-11-03T21:00:00+00:00",
   "ETH": "2026-11-03T09:15:00+00:00",
   "SOL": "2026-11-03T14:15:00+00:00",
-  "GOLD": "2026-10-14T22:53:48.396225+00:00",
+  "GOLD": "2026-11-04T00:45:00+00:00",
   "NDX": "2026-10-30T15:45:00+00:00"
  },
  "closed": [
@@ -1060,6 +984,50 @@
    "exit": "STOP",
    "t_close": "2026-11-03T21:00:00+00:00",
    "exit_price": 77928.38428571429
+  },
+  {
+   "id": "GOLD-050",
+   "key": "GOLD",
+   "side": 1,
+   "style": "SweepMSSIDM",
+   "tf": "15m",
+   "entry": 3895.09198,
+   "reference_entry": 3898.74283,
+   "stop": 3895.09198,
+   "stop0": 3865.029895714286,
+   "tps": [
+    3966.1686985714286,
+    3999.881632857143,
+    4033.594567142857
+   ],
+   "hits": [
+    true,
+    false,
+    false
+   ],
+   "score": 7.8,
+   "rr": 3.4857747008227107,
+   "state": "CLOSED",
+   "t_decl": "2026-11-02T00:37:44.687417+00:00",
+   "t0": "2026-11-02T00:45:00+00:00",
+   "not_before": "2026-11-02T00:45:00+00:00",
+   "expires": "2026-11-02T04:37:44.687417+00:00",
+   "source": "twelve:XAU/USD",
+   "engine_version": "paper-v2",
+   "strategy_version": "sweep_mss_idm_demand_supply_v2",
+   "cost_bps": 14.0,
+   "zone": [
+    3865.6246062857144,
+    3895.5956137142857
+   ],
+   "ambiguous": false,
+   "entry_mode": "NEXT_OPEN",
+   "seen": "2026-11-04T00:30:00+00:00",
+   "r": 1.2893,
+   "gross_r": 1.4707,
+   "exit": "TIME EXIT",
+   "t_close": "2026-11-04T00:45:00+00:00",
+   "exit_price": 3925.87149
   }
  ],
  "n": 59,
@@ -1122,9 +1090,9 @@
  },
  "outbox": [],
  "last_analysis": {
-  "BTC": "2026-11-04T00:15:00+00:00",
+  "BTC": "2026-11-04T01:30:00+00:00",
   "ETH": "2026-11-03T19:15:00+00:00",
-  "SOL": "2026-11-04T00:15:00+00:00",
+  "SOL": "2026-11-04T01:30:00+00:00",
   "GOLD": "2026-11-02T00:30:00+00:00",
   "NDX": "2026-11-03T20:45:00+00:00"
  },
@@ -1635,10 +1603,12 @@
   "BTC-057:entered",
   "ETH-058:entered",
   "NDX-059:setup",
-  "BTC-057:closed"
+  "BTC-057:closed",
+  "GOLD-050:closed",
+  "NDX-059:expired"
  ],
  "last_decision": {
-  "BTC": "BTC: NONE score=9.6",
+  "BTC": "BTC: NONE score=3.5",
   "ETH": "ETH: PENDING score=7.6 | ETH-058",
   "SOL": "SOL: NONE score=3.5",
   "GOLD": "GOLD: PENDING score=7.8 | GOLD-050",
