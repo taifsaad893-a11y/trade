@@ -37,7 +37,7 @@
    ],
    "ambiguous": false,
    "entry_mode": "NEXT_OPEN",
-   "seen": "2026-11-05T03:15:00+00:00"
+   "seen": "2026-11-05T04:15:00+00:00"
   },
   "SOL": {
    "id": "SOL-065",
@@ -75,7 +75,7 @@
     95.75382857142857
    ],
    "ambiguous": false,
-   "seen": "2026-11-05T03:15:00+00:00"
+   "seen": "2026-11-05T04:15:00+00:00"
   }
  },
  "watch": {},
@@ -1260,10 +1260,10 @@
  },
  "outbox": [],
  "last_analysis": {
-  "BTC": "2026-11-05T03:30:00+00:00",
+  "BTC": "2026-11-05T04:30:00+00:00",
   "ETH": "2026-11-04T17:15:00+00:00",
   "SOL": "2026-11-05T02:45:00+00:00",
-  "GOLD": "2026-11-05T03:30:00+00:00",
+  "GOLD": "2026-11-05T04:30:00+00:00",
   "NDX": "2026-11-04T20:45:00+00:00"
  },
  "event_ids": [
@@ -1798,10 +1798,11 @@
   "ETH-063:entered",
   "GOLD-064:expired",
   "GOLD:waiting:2026-11-04T22:15:00+00:00",
-  "SOL-065:setup"
+  "SOL-065:setup",
+  "GOLD:waiting:2026-11-05T04:30:00+00:00"
  ],
  "last_decision": {
-  "BTC": "BTC: NONE score=8.0",
+  "BTC": "BTC: NONE score=3.5",
   "ETH": "ETH: PENDING score=9.4 | ETH-063",
   "SOL": "SOL: ARMED score=9.0 | SOL-065",
   "GOLD": "GOLD: NONE score=3.5",
@@ -1815,7 +1816,7 @@
   "SOL": "sequence_v1"
  },
  "waiting_status_ts": {
-  "GOLD": "2026-11-04T22:27:37.079748+00:00",
+  "GOLD": "2026-11-05T04:38:07.959190+00:00",
   "NDX": "2026-11-04T16:18:52.779389+00:00"
  },
  "confirmation_setups": {},
