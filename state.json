@@ -37,7 +37,7 @@
    ],
    "ambiguous": false,
    "entry_mode": "NEXT_OPEN",
-   "seen": "2026-11-05T06:15:00+00:00"
+   "seen": "2026-11-05T07:30:00+00:00"
   },
   "SOL": {
    "id": "SOL-065",
@@ -75,7 +75,7 @@
     95.75382857142857
    ],
    "ambiguous": false,
-   "seen": "2026-11-05T06:15:00+00:00",
+   "seen": "2026-11-05T07:30:00+00:00",
    "entry_mode": "LIMIT_INTRABAR"
   },
   "GOLD": {
@@ -84,7 +84,7 @@
    "side": -1,
    "style": "SweepMSSIDM",
    "tf": "15m",
-   "entry": 4127.02879,
+   "entry": 4127.14187,
    "reference_entry": 4127.02879,
    "stop": 4145.504817999999,
    "stop0": 4145.504817999999,
@@ -99,10 +99,10 @@
     false
    ],
    "score": 7.4,
-   "rr": 3.0,
-   "state": "PENDING",
+   "rr": 3.0246322104708,
+   "state": "ENTERED",
    "t_decl": "2026-11-05T06:40:31.659136+00:00",
-   "t0": "2026-11-05T06:40:31.659136+00:00",
+   "t0": "2026-11-05T07:00:00+00:00",
    "not_before": "2026-11-05T06:45:00+00:00",
    "expires": "2026-11-05T10:40:31.659136+00:00",
    "source": "twelve:XAU/USD",
@@ -113,7 +113,9 @@
     4134.1102427999995,
     4144.3210972
    ],
-   "ambiguous": false
+   "ambiguous": false,
+   "seen": "2026-11-05T07:30:00+00:00",
+   "entry_mode": "NEXT_OPEN"
   }
  },
  "watch": {},
@@ -1293,12 +1295,12 @@
    "Core PCE Price Index m/m|2026-10-29T12:30:00+00:00",
    "Congressional Elections|2026-11-03T15:16:00+00:00"
   ],
-  "calendar_attempt_v2": "2026-11-05T00:40:36.753526+00:00",
-  "calendar_success_v2": "2026-11-05T00:40:36.753526+00:00"
+  "calendar_attempt_v2": "2026-11-05T07:56:13.346012+00:00",
+  "calendar_success_v2": "2026-11-05T07:56:13.346012+00:00"
  },
  "outbox": [],
  "last_analysis": {
-  "BTC": "2026-11-05T06:30:00+00:00",
+  "BTC": "2026-11-05T07:45:00+00:00",
   "ETH": "2026-11-04T17:15:00+00:00",
   "SOL": "2026-11-05T02:45:00+00:00",
   "GOLD": "2026-11-05T06:30:00+00:00",
@@ -1839,10 +1841,11 @@
   "SOL-065:setup",
   "GOLD:waiting:2026-11-05T04:30:00+00:00",
   "SOL-065:entered",
-  "GOLD-066:setup"
+  "GOLD-066:setup",
+  "GOLD-066:entered"
  ],
  "last_decision": {
-  "BTC": "BTC: NONE score=3.5",
+  "BTC": "BTC: NONE score=9.0",
   "ETH": "ETH: PENDING score=9.4 | ETH-063",
   "SOL": "SOL: ARMED score=9.0 | SOL-065",
   "GOLD": "GOLD: PENDING score=7.4 | GOLD-066",
