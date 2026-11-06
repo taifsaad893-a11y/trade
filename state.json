@@ -37,7 +37,7 @@
    ],
    "ambiguous": false,
    "entry_mode": "NEXT_OPEN",
-   "seen": "2026-11-05T23:45:00+00:00"
+   "seen": "2026-11-06T00:45:00+00:00"
   },
   "SOL": {
    "id": "SOL-070",
@@ -45,7 +45,7 @@
    "side": -1,
    "style": "SweepMSSIDM",
    "tf": "15m",
-   "entry": 89.33,
+   "entry": 89.69,
    "reference_entry": 89.33,
    "stop": 90.52882857142856,
    "stop0": 90.52882857142856,
@@ -60,10 +60,10 @@
     false
    ],
    "score": 9.6,
-   "rr": 3.0,
-   "state": "PENDING",
+   "rr": 4.716679723423834,
+   "state": "ENTERED",
    "t_decl": "2026-11-06T00:03:58.753724+00:00",
-   "t0": "2026-11-06T00:03:58.753724+00:00",
+   "t0": "2026-11-06T00:15:00+00:00",
    "not_before": "2026-11-06T00:15:00+00:00",
    "expires": "2026-11-06T04:03:58.753724+00:00",
    "source": "binance:SOLUSDT",
@@ -74,44 +74,9 @@
     89.92411428571428,
     90.24588571428572
    ],
-   "ambiguous": false
-  },
-  "GOLD": {
-   "id": "GOLD-071",
-   "key": "GOLD",
-   "side": 1,
-   "style": "SweepMSSIDM",
-   "tf": "15m",
-   "entry": 4086.56171,
-   "reference_entry": 4086.56171,
-   "stop": 4067.464476285714,
-   "stop0": 4067.464476285714,
-   "tps": [
-    4124.756177428571,
-    4143.853411142857,
-    4162.950644857143
-   ],
-   "hits": [
-    false,
-    false,
-    false
-   ],
-   "score": 9.0,
-   "rr": 3.0,
-   "state": "PENDING",
-   "t_decl": "2026-11-06T00:03:58.753724+00:00",
-   "t0": "2026-11-06T00:03:58.753724+00:00",
-   "not_before": "2026-11-06T00:15:00+00:00",
-   "expires": "2026-11-06T04:03:58.753724+00:00",
-   "source": "twelve:XAU/USD",
-   "engine_version": "paper-v2",
-   "strategy_version": "sweep_mss_idm_demand_supply_v2",
-   "cost_bps": 14.0,
-   "zone": [
-    4068.3473545142856,
-    4095.2144454857144
-   ],
-   "ambiguous": false
+   "ambiguous": false,
+   "entry_mode": "NEXT_OPEN",
+   "seen": "2026-11-06T00:45:00+00:00"
   }
  },
  "watch": {},
@@ -1428,7 +1393,7 @@
  },
  "outbox": [],
  "last_analysis": {
-  "BTC": "2026-11-05T22:30:00+00:00",
+  "BTC": "2026-11-06T01:00:00+00:00",
   "ETH": "2026-11-05T22:30:00+00:00",
   "SOL": "2026-11-06T00:00:00+00:00",
   "GOLD": "2026-11-06T00:00:00+00:00",
@@ -1985,10 +1950,12 @@
   "BTC-068:invalid",
   "ETH-069:entered",
   "SOL-070:setup",
-  "GOLD-071:setup"
+  "GOLD-071:setup",
+  "SOL-070:entered",
+  "GOLD-071:invalid"
  ],
  "last_decision": {
-  "BTC": "BTC: PENDING score=9.6 | BTC-068",
+  "BTC": "BTC: NONE score=3.5",
   "ETH": "ETH: PENDING score=9.0 | ETH-069",
   "SOL": "SOL: PENDING score=9.6 | SOL-070",
   "GOLD": "GOLD: PENDING score=9.0 | GOLD-071",
