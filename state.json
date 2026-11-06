@@ -37,7 +37,7 @@
    ],
    "ambiguous": false,
    "entry_mode": "NEXT_OPEN",
-   "seen": "2026-11-06T14:00:00+00:00"
+   "seen": "2026-11-06T14:45:00+00:00"
   },
   "GOLD": {
    "id": "GOLD-076",
@@ -45,7 +45,7 @@
    "side": -1,
    "style": "SweepMSSIDM",
    "tf": "15m",
-   "entry": 4035.59918,
+   "entry": 4034.64268,
    "reference_entry": 4035.59918,
    "stop": 4081.3903118571425,
    "stop0": 4081.3903118571425,
@@ -60,10 +60,10 @@
     false
    ],
    "score": 7.8,
-   "rr": 3.0,
-   "state": "PENDING",
+   "rr": 2.9181562819761027,
+   "state": "ENTERED",
    "t_decl": "2026-11-06T14:29:37.921974+00:00",
-   "t0": "2026-11-06T14:29:37.921974+00:00",
+   "t0": "2026-11-06T14:30:00+00:00",
    "not_before": "2026-11-06T14:30:00+00:00",
    "expires": "2026-11-06T18:29:37.921974+00:00",
    "source": "twelve:XAU/USD",
@@ -73,6 +73,45 @@
    "zone": [
     4044.002531257143,
     4080.104258742857
+   ],
+   "ambiguous": false,
+   "entry_mode": "NEXT_OPEN",
+   "seen": "2026-11-06T14:45:00+00:00"
+  },
+  "SOL": {
+   "id": "SOL-077",
+   "key": "SOL",
+   "side": 1,
+   "style": "SweepMSSIDM",
+   "tf": "15m",
+   "entry": 90.99,
+   "reference_entry": 90.99,
+   "stop": 89.6228,
+   "stop0": 89.6228,
+   "tps": [
+    93.72439999999999,
+    95.09159999999999,
+    96.45879999999998
+   ],
+   "hits": [
+    false,
+    false,
+    false
+   ],
+   "score": 7.8,
+   "rr": 3.0,
+   "state": "PENDING",
+   "t_decl": "2026-11-06T15:12:09.643623+00:00",
+   "t0": "2026-11-06T15:12:09.643623+00:00",
+   "not_before": "2026-11-06T15:15:00+00:00",
+   "expires": "2026-11-06T19:12:09.643623+00:00",
+   "source": "binance:SOLUSDT",
+   "engine_version": "paper-v2",
+   "strategy_version": "sweep_mss_idm_demand_supply_v2",
+   "cost_bps": 14.0,
+   "zone": [
+    89.76520000000001,
+    90.42479999999999
    ],
    "ambiguous": false
   }
@@ -1419,7 +1458,7 @@
    "exit_price": 90.64314285714285
   }
  ],
- "n": 76,
+ "n": 77,
  "last_report": "2026-10-16T21:08:50.332805+00:00",
  "news": {
   "cal": [
@@ -1482,9 +1521,9 @@
  },
  "outbox": [],
  "last_analysis": {
-  "BTC": "2026-11-06T09:15:00+00:00",
+  "BTC": "2026-11-06T15:00:00+00:00",
   "ETH": "2026-11-05T22:30:00+00:00",
-  "SOL": "2026-11-06T14:15:00+00:00",
+  "SOL": "2026-11-06T15:00:00+00:00",
   "GOLD": "2026-11-06T14:15:00+00:00",
   "NDX": "2026-11-05T21:00:00+00:00"
  },
@@ -2057,12 +2096,14 @@
   "5e7b7734-7479-43d0-a59b-d9695ef2bec3",
   "888ea769-8d1b-4dc5-ace8-30593643d743",
   "BTC-075:expired",
-  "GOLD-076:setup"
+  "GOLD-076:setup",
+  "SOL-077:setup",
+  "GOLD-076:entered"
  ],
  "last_decision": {
-  "BTC": "BTC: ARMED score=7.4 | BTC-075",
+  "BTC": "BTC: NONE score=3.5",
   "ETH": "ETH: PENDING score=9.0 | ETH-069",
-  "SOL": "SOL: NONE score=3.5",
+  "SOL": "SOL: PENDING score=7.8 | SOL-077",
   "GOLD": "GOLD: PENDING score=7.8 | GOLD-076",
   "NDX": "NDX: NONE score=3.5"
  },
