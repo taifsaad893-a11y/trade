@@ -37,7 +37,44 @@
    ],
    "ambiguous": false,
    "entry_mode": "NEXT_OPEN",
-   "seen": "2026-11-06T04:45:00+00:00"
+   "seen": "2026-11-06T05:45:00+00:00"
+  },
+  "SOL": {
+   "id": "SOL-073",
+   "key": "SOL",
+   "side": -1,
+   "style": "SweepMSSIDM",
+   "tf": "15m",
+   "entry": 90.24074285714285,
+   "reference_entry": 90.24074285714285,
+   "stop": 90.64314285714285,
+   "stop0": 90.64314285714285,
+   "tps": [
+    89.43594285714285,
+    89.03354285714285,
+    88.63114285714285
+   ],
+   "hits": [
+    false,
+    false,
+    false
+   ],
+   "score": 9.6,
+   "rr": 3.0,
+   "state": "ARMED",
+   "t_decl": "2026-11-06T06:04:17.785534+00:00",
+   "t0": "2026-11-06T06:04:17.785534+00:00",
+   "not_before": "2026-11-06T06:15:00+00:00",
+   "expires": "2026-11-06T10:04:17.785534+00:00",
+   "source": "binance:SOLUSDT",
+   "engine_version": "paper-v2",
+   "strategy_version": "sweep_mss_idm_demand_supply_v2",
+   "cost_bps": 14.0,
+   "zone": [
+    90.24074285714285,
+    90.59925714285714
+   ],
+   "ambiguous": false
   }
  },
  "watch": {},
@@ -1338,7 +1375,7 @@
    "exit_price": 90.52882857142856
   }
  ],
- "n": 72,
+ "n": 73,
  "last_report": "2026-10-16T21:08:50.332805+00:00",
  "news": {
   "cal": [
@@ -1398,10 +1435,10 @@
  },
  "outbox": [],
  "last_analysis": {
-  "BTC": "2026-11-06T05:00:00+00:00",
+  "BTC": "2026-11-06T06:00:00+00:00",
   "ETH": "2026-11-05T22:30:00+00:00",
-  "SOL": "2026-11-06T04:00:00+00:00",
-  "GOLD": "2026-11-06T05:00:00+00:00",
+  "SOL": "2026-11-06T06:00:00+00:00",
+  "GOLD": "2026-11-06T06:00:00+00:00",
   "NDX": "2026-11-05T21:00:00+00:00"
  },
  "event_ids": [
@@ -1961,12 +1998,13 @@
   "SOL-070:closed",
   "GOLD:waiting:2026-11-06T02:15:00+00:00",
   "SOL-072:setup",
-  "SOL-072:invalid"
+  "SOL-072:invalid",
+  "SOL-073:setup"
  ],
  "last_decision": {
   "BTC": "BTC: NONE score=3.5",
   "ETH": "ETH: PENDING score=9.0 | ETH-069",
-  "SOL": "SOL: PENDING score=9.6 | SOL-072",
+  "SOL": "SOL: ARMED score=9.6 | SOL-073",
   "GOLD": "GOLD: NONE score=3.5",
   "NDX": "NDX: NONE score=3.5"
  },
