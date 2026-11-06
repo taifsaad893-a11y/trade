@@ -37,44 +37,7 @@
    ],
    "ambiguous": false,
    "entry_mode": "NEXT_OPEN",
-   "seen": "2026-11-06T03:45:00+00:00"
-  },
-  "SOL": {
-   "id": "SOL-072",
-   "key": "SOL",
-   "side": -1,
-   "style": "SweepMSSIDM",
-   "tf": "15m",
-   "entry": 89.78,
-   "reference_entry": 89.78,
-   "stop": 90.65899999999999,
-   "stop0": 90.65899999999999,
-   "tps": [
-    88.02200000000002,
-    87.14300000000003,
-    86.26400000000004
-   ],
-   "hits": [
-    false,
-    false,
-    false
-   ],
-   "score": 9.6,
-   "rr": 3.0,
-   "state": "PENDING",
-   "t_decl": "2026-11-06T04:07:00.053561+00:00",
-   "t0": "2026-11-06T04:07:00.053561+00:00",
-   "not_before": "2026-11-06T04:15:00+00:00",
-   "expires": "2026-11-06T08:07:00.053561+00:00",
-   "source": "binance:SOLUSDT",
-   "engine_version": "paper-v2",
-   "strategy_version": "sweep_mss_idm_demand_supply_v2",
-   "cost_bps": 14.0,
-   "zone": [
-    90.2344,
-    90.6056
-   ],
-   "ambiguous": false
+   "seen": "2026-11-06T04:45:00+00:00"
   }
  },
  "watch": {},
@@ -1435,10 +1398,10 @@
  },
  "outbox": [],
  "last_analysis": {
-  "BTC": "2026-11-06T04:00:00+00:00",
+  "BTC": "2026-11-06T05:00:00+00:00",
   "ETH": "2026-11-05T22:30:00+00:00",
   "SOL": "2026-11-06T04:00:00+00:00",
-  "GOLD": "2026-11-06T04:00:00+00:00",
+  "GOLD": "2026-11-06T05:00:00+00:00",
   "NDX": "2026-11-05T21:00:00+00:00"
  },
  "event_ids": [
@@ -1997,7 +1960,8 @@
   "GOLD-071:invalid",
   "SOL-070:closed",
   "GOLD:waiting:2026-11-06T02:15:00+00:00",
-  "SOL-072:setup"
+  "SOL-072:setup",
+  "SOL-072:invalid"
  ],
  "last_decision": {
   "BTC": "BTC: NONE score=3.5",
