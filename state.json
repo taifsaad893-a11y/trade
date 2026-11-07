@@ -1,44 +1,5 @@
 {
  "active": {
-  "GOLD": {
-   "id": "GOLD-076",
-   "key": "GOLD",
-   "side": -1,
-   "style": "SweepMSSIDM",
-   "tf": "15m",
-   "entry": 4034.64268,
-   "reference_entry": 4035.59918,
-   "stop": 4081.3903118571425,
-   "stop0": 4081.3903118571425,
-   "tps": [
-    3944.0169162857155,
-    3898.225784428573,
-    3852.434652571431
-   ],
-   "hits": [
-    false,
-    false,
-    false
-   ],
-   "score": 7.8,
-   "rr": 2.9181562819761027,
-   "state": "ENTERED",
-   "t_decl": "2026-11-06T14:29:37.921974+00:00",
-   "t0": "2026-11-06T14:30:00+00:00",
-   "not_before": "2026-11-06T14:30:00+00:00",
-   "expires": "2026-11-06T18:29:37.921974+00:00",
-   "source": "twelve:XAU/USD",
-   "engine_version": "paper-v2",
-   "strategy_version": "sweep_mss_idm_demand_supply_v2",
-   "cost_bps": 14.0,
-   "zone": [
-    4044.002531257143,
-    4080.104258742857
-   ],
-   "ambiguous": false,
-   "entry_mode": "NEXT_OPEN",
-   "seen": "2026-11-07T13:45:00+00:00"
-  },
   "SOL": {
    "id": "SOL-077",
    "key": "SOL",
@@ -76,7 +37,7 @@
    ],
    "ambiguous": false,
    "entry_mode": "NEXT_OPEN",
-   "seen": "2026-11-07T13:45:00+00:00"
+   "seen": "2026-11-07T14:30:00+00:00"
   }
  },
  "watch": {},
@@ -84,7 +45,7 @@
   "BTC": "2026-11-03T21:00:00+00:00",
   "ETH": "2026-11-06T22:45:00+00:00",
   "SOL": "2026-11-06T12:15:00+00:00",
-  "GOLD": "2026-11-05T17:00:00+00:00",
+  "GOLD": "2026-11-07T14:30:00+00:00",
   "NDX": "2026-10-30T15:45:00+00:00"
  },
  "closed": [
@@ -1463,6 +1424,50 @@
    "exit": "TIME EXIT",
    "t_close": "2026-11-06T22:45:00+00:00",
    "exit_price": 2243.26
+  },
+  {
+   "id": "GOLD-076",
+   "key": "GOLD",
+   "side": -1,
+   "style": "SweepMSSIDM",
+   "tf": "15m",
+   "entry": 4034.64268,
+   "reference_entry": 4035.59918,
+   "stop": 4081.3903118571425,
+   "stop0": 4081.3903118571425,
+   "tps": [
+    3944.0169162857155,
+    3898.225784428573,
+    3852.434652571431
+   ],
+   "hits": [
+    false,
+    false,
+    false
+   ],
+   "score": 7.8,
+   "rr": 2.9181562819761027,
+   "state": "CLOSED",
+   "t_decl": "2026-11-06T14:29:37.921974+00:00",
+   "t0": "2026-11-06T14:30:00+00:00",
+   "not_before": "2026-11-06T14:30:00+00:00",
+   "expires": "2026-11-06T18:29:37.921974+00:00",
+   "source": "twelve:XAU/USD",
+   "engine_version": "paper-v2",
+   "strategy_version": "sweep_mss_idm_demand_supply_v2",
+   "cost_bps": 14.0,
+   "zone": [
+    4044.002531257143,
+    4080.104258742857
+   ],
+   "ambiguous": false,
+   "entry_mode": "NEXT_OPEN",
+   "seen": "2026-11-07T14:15:00+00:00",
+   "r": -0.7932,
+   "gross_r": -0.6723,
+   "exit": "TIME EXIT",
+   "t_close": "2026-11-07T14:30:00+00:00",
+   "exit_price": 4066.07245
   }
  ],
  "n": 78,
@@ -1528,8 +1533,8 @@
  },
  "outbox": [],
  "last_analysis": {
-  "BTC": "2026-11-07T14:00:00+00:00",
-  "ETH": "2026-11-07T14:00:00+00:00",
+  "BTC": "2026-11-07T14:45:00+00:00",
+  "ETH": "2026-11-07T14:45:00+00:00",
   "SOL": "2026-11-06T15:00:00+00:00",
   "GOLD": "2026-11-06T14:15:00+00:00",
   "NDX": "2026-11-06T21:00:00+00:00"
@@ -2111,11 +2116,12 @@
   "NDX-078:expired",
   "NDX:waiting:2026-11-06T21:00:00+00:00",
   "weekly-v2:2026-11-06T21:00:00+00:00",
-  "ETH-069:closed"
+  "ETH-069:closed",
+  "GOLD-076:closed"
  ],
  "last_decision": {
   "BTC": "BTC: NONE score=3.5",
-  "ETH": "ETH: NONE score=8.6",
+  "ETH": "ETH: NONE score=3.5",
   "SOL": "SOL: PENDING score=7.8 | SOL-077",
   "GOLD": "GOLD: PENDING score=7.8 | GOLD-076",
   "NDX": "NDX: NONE score=9.6"
