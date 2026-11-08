@@ -2,8 +2,8 @@ name: market-scanner
 
 on:
   schedule:
-    # Run shortly after each 15m candle closes (UTC).
-    - cron: "2,17,32,47 * * * *"
+    # Run shortly after each 5-minute candle closes (UTC).
+    - cron: "1,6,11,16,21,26,31,36,41,46,51,56 * * * *"
   push:
     branches:
       - main
@@ -40,32 +40,16 @@ jobs:
         if: ${{ hashFiles('tests/test_scanner.py') != '' }}
         run: python -m unittest discover -s tests -v
 
-      - name: Apply reviewed patches
-        run: python upgrade_agent.py
-
-      - name: Analyze latest closed 15m candle
-        run: python gold_fallback_scanner.py
+      - name: Analyze latest closed 5m candle (Silver Bullet)
+        run: python silver_bullet_scanner.py
         env:
-          GEMINI_KEY: ${{ secrets.GEMINI_KEY }}
           TG_TOKEN: ${{ secrets.TG_TOKEN }}
           TG_CHAT: ${{ secrets.TG_CHAT }}
           TWELVE_KEY: ${{ secrets.TWELVE_KEY }}
           EVENT: ${{ github.event_name }}
 
-          LOOP_SCANS: "1"
-          SCAN_INTERVAL_SECONDS: "0"
-
-          GOLD_PROVIDER: twelve
           GOLD_SYMBOL: XAU/USD
-
-          NDX_PROVIDER: yahoo
-          NDX_SYMBOL: ^NDX
-
-          ROUNDTRIP_COST_BPS: "14"
-
-          USE_NEWS_BIAS: "false"
-          NEWS_BIAS_FILTER: "false"
-          NEWS_MODE: warn
+          NDX_SYMBOL: NQ=F
 
       - name: Preserve state and retry queue
         if: always()
