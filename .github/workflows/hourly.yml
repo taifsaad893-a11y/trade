@@ -2,8 +2,8 @@ name: market-scanner
 
 on:
   schedule:
-    # Run shortly after each 5-minute candle closes (UTC).
-    - cron: "1,6,11,16,21,26,31,36,41,46,51,56 * * * *"
+    # Start a 15-minute session; scan each 5-minute close inside the session.
+    - cron: "1,16,31,46 * * * *"
   push:
     branches:
       - main
@@ -16,12 +16,12 @@ permissions:
 
 concurrency:
   group: scanner
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   run:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
 
     steps:
       - uses: actions/checkout@v4
@@ -41,7 +41,12 @@ jobs:
         run: python -m unittest discover -s tests -v
 
       - name: Analyze latest closed 5m candle (Silver Bullet)
-        run: python silver_bullet_scanner.py
+        run: |
+          for i in 1 2 3; do
+            echo "SILVER BULLET SCAN $i/3 at $(date -u +%FT%TZ)"
+            python silver_bullet_scanner.py || exit $?
+            if [ "$i" -lt 3 ]; then sleep 300; fi
+          done
         env:
           TG_TOKEN: ${{ secrets.TG_TOKEN }}
           TG_CHAT: ${{ secrets.TG_CHAT }}
