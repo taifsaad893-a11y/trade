@@ -25,6 +25,8 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+          # Read the latest persisted state after any queued run finishes.
+          ref: main
 
       - uses: actions/setup-python@v5
         with:
