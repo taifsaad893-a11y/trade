@@ -2159,9 +2159,10 @@
     "session_name": "New York PM",
     "window_end": "2026-11-10T20:00:00+00:00",
     "created_close": "2026-11-10T19:15:00+00:00",
-    "state": "PENDING",
+    "state": "FILLED",
     "id": "SB-GOLD-00003",
-    "last_end": "2026-11-10T19:30:00+00:00"
+    "last_end": "2026-11-10T19:35:00+00:00",
+    "filled_at": "2026-11-10T19:35:00+00:00"
    }
   },
   "used": [
@@ -2227,7 +2228,8 @@
    "SB-NDX-00001:close",
    "SB-GOLD-00002:filled",
    "SB-GOLD-00002:close",
-   "SB-GOLD-00003:setup"
+   "SB-GOLD-00003:setup",
+   "SB-GOLD-00003:filled"
   ],
   "n": 3,
   "version": "ict_silver_bullet_5m_v2"
