@@ -124,7 +124,8 @@ def twelve(symbol, now):
     r = requests.get("https://api.twelvedata.com/time_series", params={
         "symbol": symbol, "interval": "5min", "outputsize": 900,
         "timezone": "UTC", "apikey": key}, timeout=(8, 25))
-    r.raise_for_status()
+    if not r.ok:
+        raise RuntimeError(f"Twelve Data HTTP {r.status_code}")
     j = r.json()
     if "values" not in j:
         raise RuntimeError("Twelve Data 5min unavailable: " + str(j.get("code", "unknown")))
@@ -275,6 +276,21 @@ def main():
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     st, sb = load()
     now = pd.Timestamp.now(tz="UTC")
+    LOG.info("SCAN START | %s", now.isoformat())
+    token, chat = os.environ.get("TG_TOKEN"), os.environ.get("TG_CHAT")
+    if not token or not chat:
+        raise RuntimeError("Missing TG_TOKEN or TG_CHAT")
+    for method, params in (("getMe", {}), ("getChat", {"chat_id": chat})):
+        try:
+            response = requests.post(f"https://api.telegram.org/bot{token}/{method}",
+                                     json=params, timeout=(8, 25))
+            if not response.ok or response.json().get("ok") is not True:
+                raise RuntimeError(f"Telegram {method} HTTP {response.status_code}")
+        except Exception:
+            LOG.error("TELEGRAM CHECK FAILED | %s", method)
+            return 1
+    LOG.info("TELEGRAM CHECK OK | bot and destination accessible; no test message sent")
+    checked = 0
     for key in MARKETS:
         try:
             d, source = prices(key, now)
@@ -282,6 +298,9 @@ def main():
             if age > pd.Timedelta(minutes=9):
                 LOG.warning("%s source stale: %s age=%s", key, source, age)
                 continue  # Never send a late setup or use stale candles for tracking.
+            checked += 1
+            LOG.info("DATA OK | %s | %s | last_close=%s | age=%s | bars=%d",
+                     key, source, (d.index[-1] + FIVE).isoformat(), age, len(d))
             rec = sb["active"].get(key)
             if rec:
                 advance(sb, rec, d, source, now)
@@ -291,6 +310,7 @@ def main():
                     continue
             found = setup(key, d, source, now)
             if not found:
+                LOG.info("NO NEW SETUP | %s", key)
                 continue
             used = f"{key}:{found['session']}"
             if used in sb["used"]:
@@ -312,10 +332,13 @@ def main():
                 "الحالة: انتظار لمس الدخول خلال نفس ساعة Silver Bullet\n"
                 "تنبيه ورقي، مو أمر منفّذ"))
         except Exception as exc:
-            LOG.exception("%s skipped due to data/analysis error: %s", key, type(exc).__name__)
+            LOG.error("%s skipped due to data/analysis error: %s", key, type(exc).__name__)
     sb["version"] = VERSION
-    return 0 if flush(st, sb) else 1
+    delivered = flush(st, sb)
+    LOG.info("SCAN COMPLETE | markets_ok=%d/2 | pending_notifications=%d", checked, len(sb["outbox"]))
+    return 0 if delivered and checked == len(MARKETS) else 1
 
 
 if __name__ == "__main__":
     raise SystemExit(main())
+

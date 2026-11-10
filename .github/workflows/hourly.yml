@@ -1,9 +1,7 @@
 name: market-scanner
 
 on:
-  schedule:
-    # Start a 15-minute session; scan each 5-minute close inside the session.
-    - cron: "1,16,31,46 * * * *"
+  # External cron-job.org dispatch is the verified scheduler.
   push:
     branches:
       - main
@@ -42,11 +40,7 @@ jobs:
 
       - name: Analyze latest closed 5m candle (Silver Bullet)
         run: |
-          for i in 1 2 3; do
-            echo "SILVER BULLET SCAN $i/3 at $(date -u +%FT%TZ)"
-            python silver_bullet_scanner.py || exit $?
-            if [ "$i" -lt 3 ]; then sleep 300; fi
-          done
+          python silver_bullet_scanner.py
         env:
           TG_TOKEN: ${{ secrets.TG_TOKEN }}
           TG_CHAT: ${{ secrets.TG_CHAT }}
@@ -87,3 +81,4 @@ jobs:
           path: state.json
           if-no-files-found: ignore
           retention-days: 14
+
