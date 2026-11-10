@@ -2142,29 +2142,7 @@
   "GOLD": "2026-10-27T18:19:47.938384+00:00"
  },
  "silver_bullet": {
-  "active": {
-   "GOLD": {
-    "key": "GOLD",
-    "side": 1,
-    "entry": 4028.7424,
-    "stop": 4025.6204,
-    "target": 4034.1535,
-    "gap": [
-     4028.0805,
-     4029.4043
-    ],
-    "rr": 1.73,
-    "source": "Twelve:XAU/USD",
-    "session": "2026-11-10:14",
-    "session_name": "New York PM",
-    "window_end": "2026-11-10T20:00:00+00:00",
-    "created_close": "2026-11-10T19:15:00+00:00",
-    "state": "FILLED",
-    "id": "SB-GOLD-00003",
-    "last_end": "2026-11-10T19:40:00+00:00",
-    "filled_at": "2026-11-10T19:35:00+00:00"
-   }
-  },
+  "active": {},
   "used": [
    "NDX:2026-11-10:03",
    "GOLD:2026-11-10:03",
@@ -2218,6 +2196,30 @@
     "exit": "TARGET",
     "r": 0.15,
     "closed_at": "2026-11-10T08:25:00+00:00"
+   },
+   {
+    "key": "GOLD",
+    "side": 1,
+    "entry": 4028.7424,
+    "stop": 4025.6204,
+    "target": 4034.1535,
+    "gap": [
+     4028.0805,
+     4029.4043
+    ],
+    "rr": 1.73,
+    "source": "Twelve:XAU/USD",
+    "session": "2026-11-10:14",
+    "session_name": "New York PM",
+    "window_end": "2026-11-10T20:00:00+00:00",
+    "created_close": "2026-11-10T19:15:00+00:00",
+    "state": "CLOSED",
+    "id": "SB-GOLD-00003",
+    "last_end": "2026-11-10T19:45:00+00:00",
+    "filled_at": "2026-11-10T19:35:00+00:00",
+    "exit": "STOP",
+    "r": -1.0,
+    "closed_at": "2026-11-10T19:45:00+00:00"
    }
   ],
   "outbox": [],
@@ -2229,7 +2231,8 @@
    "SB-GOLD-00002:filled",
    "SB-GOLD-00002:close",
    "SB-GOLD-00003:setup",
-   "SB-GOLD-00003:filled"
+   "SB-GOLD-00003:filled",
+   "SB-GOLD-00003:close"
   ],
   "n": 3,
   "version": "ict_silver_bullet_5m_v2"
