@@ -2142,10 +2142,31 @@
   "GOLD": "2026-10-27T18:19:47.938384+00:00"
  },
  "silver_bullet": {
-  "active": {},
+  "active": {
+   "GOLD": {
+    "key": "GOLD",
+    "side": 1,
+    "entry": 4028.7424,
+    "stop": 4025.6204,
+    "target": 4034.1535,
+    "gap": [
+     4028.0805,
+     4029.4043
+    ],
+    "rr": 1.73,
+    "source": "Twelve:XAU/USD",
+    "session": "2026-11-10:14",
+    "session_name": "New York PM",
+    "window_end": "2026-11-10T20:00:00+00:00",
+    "created_close": "2026-11-10T19:15:00+00:00",
+    "state": "PENDING",
+    "id": "SB-GOLD-00003"
+   }
+  },
   "used": [
    "NDX:2026-11-10:03",
-   "GOLD:2026-11-10:03"
+   "GOLD:2026-11-10:03",
+   "GOLD:2026-11-10:14"
   ],
   "closed": [
    {
@@ -2204,9 +2225,10 @@
    "SB-NDX-00001:filled",
    "SB-NDX-00001:close",
    "SB-GOLD-00002:filled",
-   "SB-GOLD-00002:close"
+   "SB-GOLD-00002:close",
+   "SB-GOLD-00003:setup"
   ],
-  "n": 2,
+  "n": 3,
   "version": "ict_silver_bullet_5m_v2"
  }
 }
