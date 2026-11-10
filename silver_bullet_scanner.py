@@ -23,6 +23,7 @@ MARKETS = {"GOLD": "الذهب", "NDX": "ناسداك"}
 SESSIONS = {3: "London", 10: "New York AM", 14: "New York PM"}
 FIVE = pd.Timedelta(minutes=5)
 VERSION = "ict_silver_bullet_5m_v1"
+MIN_RR = 1.5  # Reject nearby liquidity targets that do not justify the stop.
 
 
 def utc(value):
@@ -222,6 +223,12 @@ def setup(key, d, source, now):
     reward = (target - entry) * side
     if not all(math.isfinite(x) for x in (entry, stop, target)) or risk < 2*tick or reward <= 0:
         return None
+    # Keep the nearest opposing liquidity target. Do not skip it for a farther
+    # level just to manufacture a better R:R; reject the setup instead.
+    if reward < MIN_RR * risk:
+        LOG.info("REJECT LOW RR | %s | reward=%.4f | risk=%.4f | rr=%.4f | min=%.2f",
+                 key, reward, risk, reward / risk, MIN_RR)
+        return None
     return {"key": key, "side": side, "entry": round(entry, 4),
             "stop": round(stop, 4), "target": round(target, 4),
             "gap": [round(bot, 4), round(top, 4)],
@@ -341,4 +348,3 @@ def main():
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

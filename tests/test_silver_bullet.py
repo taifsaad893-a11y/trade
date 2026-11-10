@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import patch
 
 import pandas as pd
 
@@ -25,6 +26,38 @@ def state():
 
 
 class SilverBulletTests(unittest.TestCase):
+    def test_nearby_target_rejected_even_when_farther_liquidity_exists(self):
+        # Previously a target less than $1 away was accepted despite a much
+        # larger stop. A farther level must not hide the nearer obstacle.
+        for key in ("GOLD", "NDX"):
+            with self.subTest(key=key), patch.object(sb, "levels", return_value=([101.0, 110.0], [])):
+                self.assertIsNone(sb.setup(key, demo(), "test",
+                                          pd.Timestamp("2026-11-03T15:16:00Z")))
+
+    def test_rr_threshold_applies_to_both_directions_and_markets(self):
+        for key in ("GOLD", "NDX"):
+            for side in (1, -1):
+                d = demo()
+                if side == -1:
+                    original = d.copy()
+                    for col, reflected in (("o", "o"), ("h", "l"), ("l", "h"), ("c", "c")):
+                        d[col] = 200 - original[reflected]
+                entry = 100.5 if side == 1 else 99.5
+                tick = 0.01 if key == "GOLD" else 0.25
+                stop = (float(d["l"].tail(8).min()) - 2 * tick if side == 1
+                        else float(d["h"].tail(8).max()) + 2 * tick)
+                risk = (entry - stop) * side
+                for ratio in (1.49, 1.51):
+                    target = entry + side * risk * ratio
+                    pools = ([target], []) if side == 1 else ([], [target])
+                    with self.subTest(key=key, side=side, ratio=ratio), patch.object(sb, "levels", return_value=pools):
+                        plan = sb.setup(key, d, "test", pd.Timestamp("2026-11-03T15:16:00Z"))
+                        if ratio < 1.5:
+                            self.assertIsNone(plan)
+                        else:
+                            self.assertIsNotNone(plan)
+                            self.assertEqual(plan["target"], round(target, 4))
+
     def test_ny_dst_and_final_bar_exclusion(self):
         self.assertEqual(sb.session_of("2026-11-03T15:00:00Z")["name"], "New York AM")
         self.assertEqual(sb.session_of("2026-06-05T14:00:00Z")["name"], "New York AM")
