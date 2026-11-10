@@ -2142,12 +2142,36 @@
   "GOLD": "2026-10-27T18:19:47.938384+00:00"
  },
  "silver_bullet": {
-  "active": {},
-  "used": [],
+  "active": {
+   "NDX": {
+    "key": "NDX",
+    "side": 1,
+    "entry": 28003.5,
+    "stop": 27949.5,
+    "target": 28006.25,
+    "gap": [
+     27982.25,
+     28024.75
+    ],
+    "rr": 0.05,
+    "source": "Yahoo:NQ=F",
+    "session": "2026-11-10:03",
+    "session_name": "London",
+    "window_end": "2026-11-10T09:00:00+00:00",
+    "created_close": "2026-11-10T08:10:00+00:00",
+    "state": "PENDING",
+    "id": "SB-NDX-00001"
+   }
+  },
+  "used": [
+   "NDX:2026-11-10:03"
+  ],
   "closed": [],
   "outbox": [],
-  "event_ids": [],
-  "n": 0,
+  "event_ids": [
+   "SB-NDX-00001:setup"
+  ],
+  "n": 1,
   "version": "ict_silver_bullet_5m_v1"
  }
 }
