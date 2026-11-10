@@ -9,12 +9,15 @@ import logging
 import math
 import os
 import tempfile
+import time
+import uuid
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
 import pandas as pd
 import requests
 import yfinance as yf
+from websockets.sync.client import connect
 
 LOG = logging.getLogger(__name__)
 NY = ZoneInfo("America/New_York")
@@ -22,8 +25,9 @@ STATE = Path("state.json")
 MARKETS = {"GOLD": "الذهب", "NDX": "ناسداك"}
 SESSIONS = {3: "London", 10: "New York AM", 14: "New York PM"}
 FIVE = pd.Timedelta(minutes=5)
-VERSION = "ict_silver_bullet_5m_v1"
+VERSION = "ict_silver_bullet_5m_v2"
 MIN_RR = 1.5  # Reject nearby liquidity targets that do not justify the stop.
+MAX_DATA_AGE = pd.Timedelta(minutes=8)
 
 
 def utc(value):
@@ -136,16 +140,98 @@ def twelve(symbol, now):
     return clean(d, now)
 
 
-def prices(key, now):
+def tv_messages(buffer):
+    """Decode TradingView length-framed messages, retaining partial frames."""
+    messages = []
+    while buffer:
+        if "~m~".startswith(buffer):
+            break
+        if not buffer.startswith("~m~"):
+            raise ValueError("invalid chart message framing")
+        end = buffer.find("~m~", 3)
+        if end < 0:
+            break
+        size = int(buffer[3:end])
+        start = end + 3
+        if len(buffer) < start + size:
+            break
+        messages.append(buffer[start:start + size])
+        buffer = buffer[start + size:]
+    return messages, buffer
+
+
+def tradingview(symbol, now):
+    """Public chart candles; no login, brokerage connection or execution."""
+    session = "cs_" + uuid.uuid4().hex[:12]
+    rows, buffer = {}, ""
+    deadline = time.monotonic() + 30
+    with connect("wss://data.tradingview.com/socket.io/websocket",
+                 origin="https://www.tradingview.com", open_timeout=10,
+                 close_timeout=2, max_size=4 * 1024 * 1024) as ws:
+        def send(method, params):
+            body = json.dumps({"m": method, "p": params}, separators=(",", ":"))
+            ws.send(f"~m~{len(body)}~m~{body}")
+
+        send("set_auth_token", ["unauthorized_user_token"])
+        send("chart_create_session", [session, ""])
+        send("resolve_symbol", [session, "symbol_1", "=" + json.dumps({
+            "symbol": symbol, "adjustment": "splits", "session": "extended"})])
+        send("create_series", [session, "s1", "s1", "symbol_1", "5", 1200, ""])
+        completed = False
+        while time.monotonic() < deadline and not completed:
+            chunk = ws.recv(timeout=max(0.1, deadline - time.monotonic()))
+            buffer += chunk.decode() if isinstance(chunk, bytes) else chunk
+            messages, buffer = tv_messages(buffer)
+            for body in messages:
+                if body.startswith("~h~"):
+                    ws.send(f"~m~{len(body)}~m~{body}")
+                    continue
+                message = json.loads(body)
+                method, params = message.get("m"), message.get("p", [])
+                if method in ("critical_error", "protocol_error", "symbol_error", "series_error"):
+                    raise RuntimeError("chart feed " + method)
+                if method == "timescale_update" and len(params) > 1:
+                    for item in params[1].get("s1", {}).get("s", []):
+                        values = item.get("v", [])
+                        if len(values) >= 5:
+                            rows[values[0]] = values[1:5]
+                if method == "series_completed":
+                    completed = True
+        if not completed or not rows:
+            raise RuntimeError("chart feed incomplete")
+    d = pd.DataFrame.from_dict(rows, orient="index", columns=["o", "h", "l", "c"])
+    d.index = pd.to_datetime(d.index, unit="s", utc=True)
+    return clean(d, now)
+
+
+def prices(key, now, preferred_source=None):
     if key == "NDX":
         sym = os.environ.get("NDX_SYMBOL", "NQ=F")
-        return yahoo(sym, now), "Yahoo:" + sym
-    sym = os.environ.get("GOLD_SYMBOL", "XAU/USD")
-    try:
-        return twelve(sym, now), "Twelve:" + sym
-    except Exception as exc:
-        LOG.warning("GOLD 5m Twelve unavailable; trying GC=F proxy: %s", type(exc).__name__)
-        return yahoo("GC=F", now), "Yahoo:GC=F (futures proxy)"
+        feeds = [
+            ("TradingView:OANDA:NAS100USD (CFD)", lambda: tradingview("OANDA:NAS100USD", now)),
+            ("TradingView:FOREXCOM:NSXUSD (CFD)", lambda: tradingview("FOREXCOM:NSXUSD", now)),
+            ("Yahoo:" + sym, lambda: yahoo(sym, now)),
+        ]
+    else:
+        sym = os.environ.get("GOLD_SYMBOL", "XAU/USD")
+        feeds = [
+            ("Twelve:" + sym, lambda: twelve(sym, now)),
+            ("TradingView:OANDA:XAUUSD (spot CFD)", lambda: tradingview("OANDA:XAUUSD", now)),
+            ("Yahoo:GC=F (futures proxy)", lambda: yahoo("GC=F", now)),
+        ]
+    # An existing setup must always be tracked against its original feed.
+    if preferred_source:
+        feeds = [(source, getter) for source, getter in feeds if source == preferred_source]
+    for source, getter in feeds:
+        try:
+            d = getter()
+            age = now - (d.index[-1] + FIVE)
+            if age < pd.Timedelta(0) or age > MAX_DATA_AGE:
+                raise ValueError("stale/future candles: " + str(age))
+            return d, source
+        except Exception as exc:
+            LOG.warning("FEED UNAVAILABLE | %s | %s | %s", key, source, str(exc)[:160])
+    raise RuntimeError("no fresh feed for " + key)
 
 
 def session_of(bar_open):
@@ -253,11 +339,13 @@ def advance(sb, rec, d, source, now):
         bar_end = ts + FIVE
         rec["last_end"] = bar_end.isoformat()
         hi, lo = float(row["h"]), float(row["l"])
+        just_filled = False
         if rec["state"] == "PENDING":
             if bar_end > end:
                 break
             if lo <= rec["entry"] <= hi:
                 rec["state"] = "FILLED"
+                just_filled = True
                 rec["filled_at"] = bar_end.isoformat()
                 emit(sb, rec["id"] + ":filled", f"📍 {rec['id']} | {MARKETS[rec['key']]}\nتم لمس الدخول الورقي: {rec['entry']:.2f}")
             else:
@@ -265,6 +353,13 @@ def advance(sb, rec, d, source, now):
         if rec["state"] == "FILLED":
             stop_hit = lo <= rec["stop"] if rec["side"] == 1 else hi >= rec["stop"]
             tp_hit = hi >= rec["target"] if rec["side"] == 1 else lo <= rec["target"]
+            if just_filled and tp_hit:
+                # The extreme may precede the entry touch. A close through TP
+                # proves a later target touch; a marketable open proves entry
+                # was possible before the extreme. Otherwise defer TP credit.
+                entered_at_open = (float(row["o"]) - rec["entry"]) * rec["side"] <= 0
+                closed_through_tp = (float(row["c"]) - rec["target"]) * rec["side"] >= 0
+                tp_hit = entered_at_open or closed_through_tp
             if stop_hit or tp_hit:
                 rec["state"] = "CLOSED"
                 rec["exit"] = "STOP" if stop_hit else "TARGET"
@@ -300,9 +395,10 @@ def main():
     checked = 0
     for key in MARKETS:
         try:
-            d, source = prices(key, now)
+            rec = sb["active"].get(key)
+            d, source = prices(key, now, rec["source"] if rec else None)
             age = now - (d.index[-1] + FIVE)
-            if age > pd.Timedelta(minutes=9):
+            if age > MAX_DATA_AGE:
                 LOG.warning("%s source stale: %s age=%s", key, source, age)
                 continue  # Never send a late setup or use stale candles for tracking.
             checked += 1
@@ -340,6 +436,10 @@ def main():
                 "تنبيه ورقي، مو أمر منفّذ"))
         except Exception as exc:
             LOG.error("%s skipped due to data/analysis error: %s", key, type(exc).__name__)
+            if rec and rec["state"] == "PENDING" and now >= utc(rec["window_end"]):
+                rec["state"] = "EXPIRED"
+                emit(sb, rec["id"] + ":expired", f"⌛ {rec['id']} | {MARKETS[key]}\nانتهت الجلسة وتعذر التحقق من لمس الدخول؛ لم يُحتسب دخول ورقي")
+                del sb["active"][key]
     sb["version"] = VERSION
     delivered = flush(st, sb)
     LOG.info("SCAN COMPLETE | markets_ok=%d/2 | pending_notifications=%d", checked, len(sb["outbox"]))

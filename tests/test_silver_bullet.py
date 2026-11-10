@@ -26,6 +26,78 @@ def state():
 
 
 class SilverBulletTests(unittest.TestCase):
+    def test_fill_candle_does_not_credit_target_that_may_precede_entry(self):
+        for side in (1, -1):
+            with self.subTest(side=side):
+                d = demo()
+                plan = sb.setup("GOLD", d, "test", pd.Timestamp("2026-11-03T15:16:00Z"))
+                if side == -1:
+                    for field in ("entry", "stop", "target"):
+                        plan[field] = 200 - plan[field]
+                    plan["side"] = -1
+                plan["id"] = "fill-test"
+                row = {"o": 101.5, "h": 105.5, "l": 100.4, "c": 100.6}
+                if side == -1:
+                    row = {"o": 200-row["o"], "h": 200-row["l"], "l": 200-row["h"], "c": 200-row["c"]}
+                d.loc[pd.Timestamp("2026-11-03T15:15:00Z")] = row
+                st = state()
+                sb.advance(st, plan, d, "test", pd.Timestamp("2026-11-03T15:21:00Z"))
+                self.assertEqual(plan["state"], "FILLED")
+                self.assertEqual(st["closed"], [])
+
+    def test_fill_candle_close_through_target_proves_target_after_fill(self):
+        d = demo()
+        plan = sb.setup("GOLD", d, "test", pd.Timestamp("2026-11-03T15:16:00Z"))
+        plan["id"] = "fill-close-test"
+        d.loc[pd.Timestamp("2026-11-03T15:15:00Z")] = {"o": 101.5, "h": 105.5, "l": 100.4, "c": 105.1}
+        st = state()
+        sb.advance(st, plan, d, "test", pd.Timestamp("2026-11-03T15:21:00Z"))
+        self.assertEqual(plan["exit"], "TARGET")
+
+    def test_stale_primary_uses_fresh_backup_without_relaxing_age(self):
+        now = pd.Timestamp("2026-11-03T15:16:00Z")
+        stale = demo()
+        stale.index -= pd.Timedelta(hours=1)
+        with patch.object(sb, "tradingview", side_effect=[stale, demo()]) as tv, patch.object(sb, "yahoo") as yahoo:
+            d, source = sb.prices("NDX", now)
+            self.assertEqual(source, "TradingView:FOREXCOM:NSXUSD (CFD)")
+            self.assertEqual(tv.call_count, 2)
+            self.assertLess(now - (d.index[-1] + sb.FIVE), sb.MAX_DATA_AGE)
+            yahoo.assert_not_called()
+
+    def test_active_source_is_pinned(self):
+        with patch.object(sb, "tradingview") as tv, patch.object(sb, "yahoo", return_value=demo()) as yahoo:
+            _, source = sb.prices("NDX", pd.Timestamp("2026-11-03T15:16:00Z"), "Yahoo:NQ=F")
+            self.assertEqual(source, "Yahoo:NQ=F")
+            tv.assert_not_called()
+            yahoo.assert_called_once()
+
+    def test_unavailable_pinned_feed_never_switches_price_basis(self):
+        with patch.object(sb, "tradingview") as tv, patch.object(sb, "yahoo", side_effect=RuntimeError("offline")):
+            with self.assertRaises(RuntimeError):
+                sb.prices("NDX", pd.Timestamp("2026-11-03T15:16:00Z"), "Yahoo:NQ=F")
+            tv.assert_not_called()
+
+    def test_gold_falls_back_when_twelve_is_unavailable(self):
+        with patch.object(sb, "twelve", side_effect=RuntimeError("quota")), patch.object(sb, "tradingview", return_value=demo()):
+            _, source = sb.prices("GOLD", pd.Timestamp("2026-11-03T15:16:00Z"))
+            self.assertEqual(source, "TradingView:OANDA:XAUUSD (spot CFD)")
+
+    def test_all_feeds_unavailable_remains_a_real_failure(self):
+        with patch.object(sb, "tradingview", side_effect=RuntimeError("offline")), patch.object(sb, "yahoo", side_effect=RuntimeError("offline")):
+            with self.assertRaises(RuntimeError):
+                sb.prices("NDX", pd.Timestamp("2026-11-03T15:16:00Z"))
+
+    def test_chart_frames_handle_heartbeats_and_partial_payloads(self):
+        first, second = '~h~123', '{"m":"series_completed","p":[]}'
+        frame = lambda body: f"~m~{len(body)}~m~{body}"
+        packet = frame(first) + frame(second)
+        messages, rest = sb.tv_messages(packet[:-4])
+        self.assertEqual(messages, [first])
+        messages, rest = sb.tv_messages(rest + packet[-4:])
+        self.assertEqual(messages, [second])
+        self.assertEqual(rest, "")
+
     def test_nearby_target_rejected_even_when_farther_liquidity_exists(self):
         # Previously a target less than $1 away was accepted despite a much
         # larger stop. A farther level must not hide the nearer obstacle.
