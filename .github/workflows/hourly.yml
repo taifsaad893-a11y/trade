@@ -40,9 +40,9 @@ jobs:
         if: ${{ hashFiles('tests/test_scanner.py') != '' }}
         run: python -m unittest discover -s tests -v
 
-      - name: Analyze latest closed 5m candle (Silver Bullet)
+      - name: Analyze support resistance breakout retest (15m)
         run: |
-          python silver_bullet_scanner.py
+          python sr_retest_scanner.py
         env:
           TG_TOKEN: ${{ secrets.TG_TOKEN }}
           TG_CHAT: ${{ secrets.TG_CHAT }}
@@ -83,4 +83,5 @@ jobs:
           path: state.json
           if-no-files-found: ignore
           retention-days: 14
+
 
