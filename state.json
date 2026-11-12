@@ -2255,12 +2255,30 @@
     "state": "FILLED",
     "version": "sr_breakout_retest_15m_v1",
     "id": "SR-NDX-00002",
-    "last_end": "2026-11-12T02:10:00+00:00"
+    "last_end": "2026-11-12T02:15:00+00:00"
+   },
+   "GOLD": {
+    "key": "GOLD",
+    "source": "Twelve:XAU/USD",
+    "side": 1,
+    "entry": 3985.53197,
+    "stop": 3976.8378698214287,
+    "target": 4013.8075,
+    "rr": 3.252266412767115,
+    "level": 3982.16975,
+    "atr": 7.544467857142861,
+    "ema_aligned": false,
+    "breakout": "2026-11-12T00:30:00+00:00",
+    "created_close": "2026-11-12T02:15:00+00:00",
+    "state": "FILLED",
+    "version": "sr_breakout_retest_15m_v1",
+    "id": "SR-GOLD-00003"
    }
   },
   "used": [
    "NDX:2026-11-11T10:30:00+00:00:1:28239.0000",
-   "NDX:2026-11-11T23:15:00+00:00:1:28092.4000"
+   "NDX:2026-11-11T23:15:00+00:00:1:28092.4000",
+   "GOLD:2026-11-12T00:30:00+00:00:1:3982.1698"
   ],
   "closed": [
    {
@@ -2289,9 +2307,10 @@
   "event_ids": [
    "SR-NDX-00001:entry",
    "SR-NDX-00001:close",
-   "SR-NDX-00002:entry"
+   "SR-NDX-00002:entry",
+   "SR-GOLD-00003:entry"
   ],
-  "n": 2,
+  "n": 3,
   "version": "sr_breakout_retest_15m_v1"
  }
 }
