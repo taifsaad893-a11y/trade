@@ -2255,25 +2255,7 @@
     "state": "FILLED",
     "version": "sr_breakout_retest_15m_v1",
     "id": "SR-NDX-00002",
-    "last_end": "2026-11-12T04:30:00+00:00"
-   },
-   "GOLD": {
-    "key": "GOLD",
-    "source": "Twelve:XAU/USD",
-    "side": 1,
-    "entry": 3983.32422,
-    "stop": 3976.179233142857,
-    "target": 4013.8075,
-    "rr": 4.266387134012103,
-    "level": 3978.51601,
-    "atr": 8.93123357142859,
-    "ema_aligned": false,
-    "breakout": "2026-11-12T02:45:00+00:00",
-    "created_close": "2026-11-12T03:15:00+00:00",
-    "state": "FILLED",
-    "version": "sr_breakout_retest_15m_v1",
-    "id": "SR-GOLD-00004",
-    "last_end": "2026-11-12T04:30:00+00:00"
+    "last_end": "2026-11-12T04:35:00+00:00"
    }
   },
   "used": [
@@ -2324,6 +2306,27 @@
     "exit": "STOP",
     "r": -1.0,
     "closed_at": "2026-11-12T02:45:00+00:00"
+   },
+   {
+    "key": "GOLD",
+    "source": "Twelve:XAU/USD",
+    "side": 1,
+    "entry": 3983.32422,
+    "stop": 3976.179233142857,
+    "target": 4013.8075,
+    "rr": 4.266387134012103,
+    "level": 3978.51601,
+    "atr": 8.93123357142859,
+    "ema_aligned": false,
+    "breakout": "2026-11-12T02:45:00+00:00",
+    "created_close": "2026-11-12T03:15:00+00:00",
+    "state": "CLOSED",
+    "version": "sr_breakout_retest_15m_v1",
+    "id": "SR-GOLD-00004",
+    "last_end": "2026-11-12T04:35:00+00:00",
+    "exit": "STOP",
+    "r": -1.0,
+    "closed_at": "2026-11-12T04:35:00+00:00"
    }
   ],
   "outbox": [],
@@ -2333,7 +2336,8 @@
    "SR-NDX-00002:entry",
    "SR-GOLD-00003:entry",
    "SR-GOLD-00003:close",
-   "SR-GOLD-00004:entry"
+   "SR-GOLD-00004:entry",
+   "SR-GOLD-00004:close"
   ],
   "n": 4,
   "version": "sr_breakout_retest_15m_v1"
