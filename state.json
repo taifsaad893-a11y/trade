@@ -2238,9 +2238,28 @@
   "version": "ict_silver_bullet_5m_v2"
  },
  "sr_retest": {
-  "active": {},
+  "active": {
+   "NDX": {
+    "key": "NDX",
+    "source": "TradingView:OANDA:NAS100USD (CFD)",
+    "side": 1,
+    "entry": 28128.6,
+    "stop": 28068.86857142857,
+    "target": 28617.3,
+    "rr": 8.181622500717543,
+    "level": 28092.4,
+    "atr": 74.6642857142854,
+    "ema_aligned": true,
+    "breakout": "2026-11-11T23:15:00+00:00",
+    "created_close": "2026-11-12T00:15:00+00:00",
+    "state": "FILLED",
+    "version": "sr_breakout_retest_15m_v1",
+    "id": "SR-NDX-00002"
+   }
+  },
   "used": [
-   "NDX:2026-11-11T10:30:00+00:00:1:28239.0000"
+   "NDX:2026-11-11T10:30:00+00:00:1:28239.0000",
+   "NDX:2026-11-11T23:15:00+00:00:1:28092.4000"
   ],
   "closed": [
    {
@@ -2268,9 +2287,10 @@
   "outbox": [],
   "event_ids": [
    "SR-NDX-00001:entry",
-   "SR-NDX-00001:close"
+   "SR-NDX-00001:close",
+   "SR-NDX-00002:entry"
   ],
-  "n": 1,
+  "n": 2,
   "version": "sr_breakout_retest_15m_v1"
  }
 }
