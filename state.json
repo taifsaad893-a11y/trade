@@ -2238,26 +2238,7 @@
   "version": "ict_silver_bullet_5m_v2"
  },
  "sr_retest": {
-  "active": {
-   "NDX": {
-    "key": "NDX",
-    "source": "TradingView:OANDA:NAS100USD (CFD)",
-    "side": 1,
-    "entry": 28128.6,
-    "stop": 28068.86857142857,
-    "target": 28617.3,
-    "rr": 8.181622500717543,
-    "level": 28092.4,
-    "atr": 74.6642857142854,
-    "ema_aligned": true,
-    "breakout": "2026-11-11T23:15:00+00:00",
-    "created_close": "2026-11-12T00:15:00+00:00",
-    "state": "FILLED",
-    "version": "sr_breakout_retest_15m_v1",
-    "id": "SR-NDX-00002",
-    "last_end": "2026-11-12T05:15:00+00:00"
-   }
-  },
+  "active": {},
   "used": [
    "NDX:2026-11-11T10:30:00+00:00:1:28239.0000",
    "NDX:2026-11-11T23:15:00+00:00:1:28092.4000",
@@ -2327,6 +2308,27 @@
     "exit": "STOP",
     "r": -1.0,
     "closed_at": "2026-11-12T04:35:00+00:00"
+   },
+   {
+    "key": "NDX",
+    "source": "TradingView:OANDA:NAS100USD (CFD)",
+    "side": 1,
+    "entry": 28128.6,
+    "stop": 28068.86857142857,
+    "target": 28617.3,
+    "rr": 8.181622500717543,
+    "level": 28092.4,
+    "atr": 74.6642857142854,
+    "ema_aligned": true,
+    "breakout": "2026-11-11T23:15:00+00:00",
+    "created_close": "2026-11-12T00:15:00+00:00",
+    "state": "CLOSED",
+    "version": "sr_breakout_retest_15m_v1",
+    "id": "SR-NDX-00002",
+    "last_end": "2026-11-12T05:20:00+00:00",
+    "exit": "STOP",
+    "r": -1.0,
+    "closed_at": "2026-11-12T05:20:00+00:00"
    }
   ],
   "outbox": [],
@@ -2337,7 +2339,8 @@
    "SR-GOLD-00003:entry",
    "SR-GOLD-00003:close",
    "SR-GOLD-00004:entry",
-   "SR-GOLD-00004:close"
+   "SR-GOLD-00004:close",
+   "SR-NDX-00002:close"
   ],
   "n": 4,
   "version": "sr_breakout_retest_15m_v1"
