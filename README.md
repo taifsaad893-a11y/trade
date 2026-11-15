@@ -3,7 +3,7 @@
 Active workflow: `.github/workflows/hourly.yml` runs `sr_retest_scanner.py`.
 The external cron dispatch remains every five minutes. Entries use only completed
 15-minute candles; target/stop monitoring uses completed five-minute candles.
-Markets: GOLD and NASDAQ only, weekdays; no trade execution.
+Markets: GOLD only, weekdays; no trade execution.
 
 ## Strategy
 
