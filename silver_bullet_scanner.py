@@ -1,4 +1,4 @@
-"""ICT Silver Bullet 5-minute paper alerts: GOLD and NDX only.
+"""ICT Silver Bullet 5-minute paper alerts: GOLD only.
 
 Rule-based approximation of the 2023 Michael Huddleston lesson:
 NY time window + 3-candle FVG + nearby opposing liquidity. A sweep and
@@ -22,7 +22,7 @@ from websockets.sync.client import connect
 LOG = logging.getLogger(__name__)
 NY = ZoneInfo("America/New_York")
 STATE = Path("state.json")
-MARKETS = {"GOLD": "الذهب", "NDX": "ناسداك"}
+MARKETS = {"GOLD": "الذهب"}
 SESSIONS = {3: "London", 10: "New York AM", 14: "New York PM"}
 FIVE = pd.Timedelta(minutes=5)
 VERSION = "ict_silver_bullet_5m_v2"
