@@ -50,7 +50,6 @@ jobs:
           EVENT: ${{ github.event_name }}
 
           GOLD_SYMBOL: XAU/USD
-          NDX_SYMBOL: NQ=F
 
       - name: Preserve state and retry queue
         if: always()
