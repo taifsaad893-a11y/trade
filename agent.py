@@ -14,14 +14,11 @@ TG_CHAT = os.environ["TG_CHAT"]
 EVENT = os.environ.get("EVENT", "")
 STATE_FILE = "state.json"
 
-NDX_OKX = "US100-USDT-SWAP"  # عقد ناسداك على OKX (غيّره إذا اسمه مختلف)
-
 ASSETS = {
     "BTC": ("bin", "BTCUSDT", "بيتكوين"),
     "ETH": ("bin", "ETHUSDT", "إيثريوم"),
     "SOL": ("bin", "SOLUSDT", "سولانا"),
     "GOLD": ("okx", "XAU-USDT", "الذهب"),
-    "NDX": ("okx", NDX_OKX, "ناسداك"),
 }
 TR = {1: "صاعد", -1: "هابط", 0: "عرضي"}
 OKX_BARS = {"15m": "15m", "1h": "1H", "4h": "4H", "1d": "1Dutc"}
@@ -34,7 +31,7 @@ def fmt(x):
 
 
 def market_closed(key, now):
-    if key not in ("GOLD", "NDX"):
+    if key != "GOLD":
         return False
     wd = now.weekday()
     hr = now.hour
@@ -227,7 +224,7 @@ def frames(kind, sym):
         if fr is None:
             if sym.startswith("XAU"):
                 return frames("td", "XAU/USD")
-            return frames("yf", "^NDX")
+            raise RuntimeError("unsupported market: " + str(sym))
         return with_daily(fr, lambda: okx_klines(use, "1d"))
     if kind == "td":
         fr = {tf: td_frame(sym, tf) for tf in ("15m", "1h", "4h")}
@@ -452,7 +449,7 @@ GOLD_VP = True     # True = ستراتيجية الذهب: هيكل + بروفا
 GOLD_VP_MIN_RISK = 0.003  # أقل مسافة وقف للذهب = 0.3% من السعر
 TF_ORDER = ["15m", "1h", "4h", "1d"]
 MIN_RISK = {"BTC": 0.004, "ETH": 0.004, "SOL": 0.005,
-            "GOLD": 0.002, "NDX": 0.0015}
+            "GOLD": 0.002}
 
 
 def flow_stats(d15):
@@ -980,9 +977,9 @@ def gold_vp(fr):
     return res
 
 
-ZONE_MODE = True   # True = الذهب وناسداك يشتغلون بتحليل المناطق
-ZONE_ASSETS = ("GOLD", "NDX")
-ZONE_MIN_RISK = {"GOLD": 0.0025, "NDX": 0.003}  # أقل مسافة وقف
+ZONE_MODE = True   # Gold zone analysis
+ZONE_ASSETS = ("GOLD",)
+ZONE_MIN_RISK = {"GOLD": 0.0025}  # أقل مسافة وقف
 ZONE_MIN_Q = 4.0        # أقل جودة لصفقة مؤكدة
 ZONE_MIN_EARLY = 3.0    # أقل جودة لتنبيه مبكر
 RISK_UP = {"منخفضة": "متوسطة", "متوسطة": "عالية", "عالية": "عالية"}
