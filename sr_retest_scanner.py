@@ -214,9 +214,9 @@ def main():
     sb["version"] = VERSION
     legacy_sent = flush(st, legacy)
     sent = flush(st, sb)
-    LOG.info("SCAN COMPLETE | markets_ok=%s/2 | pending_notifications=%s", ok,
-             len(sb["outbox"])+len(legacy["outbox"]))
-    return 0 if ok == 2 and sent and legacy_sent else 1
+    LOG.info("SCAN COMPLETE | markets_ok=%s/%s | pending_notifications=%s", ok,
+             len(feed.MARKETS), len(sb["outbox"])+len(legacy["outbox"]))
+    return 0 if ok == len(feed.MARKETS) and sent and legacy_sent else 1
 
 
 if __name__ == "__main__":
