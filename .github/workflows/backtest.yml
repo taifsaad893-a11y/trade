@@ -41,8 +41,6 @@ jobs:
           GOLD_PROVIDER: twelve
           GOLD_SYMBOL: XAU/USD
 
-          NDX_PROVIDER: yahoo
-          NDX_SYMBOL: ^NDX
 
           GOLD_VOLUME_MODE: confirm
           GC_SYMBOL: GC=F
