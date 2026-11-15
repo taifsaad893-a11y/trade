@@ -659,7 +659,7 @@ def report(mode, results, start, end):
 
     lines = [
         f"🧪 باكتيست | ICT للعملات {mode} | "
-        "بريك أوت للكل + تأكيد مناطق للذهب وناسداك",
+        "بريك أوت للعملات + تأكيد مناطق للذهب",
         f"الفترة المطلوبة UTC: "
         f"{start.isoformat()} → {end.isoformat()}",
         "الكل: " + line(all_trades),
@@ -700,7 +700,7 @@ def report(mode, results, start, end):
         f"{totals['assumed_cost_R']:.2f}R",
         "كلفة كلية مفترضة ذهاب/عودة (bps): " + costs,
         "بريك أوت لكل الأصول بدون ريتست أو CISD. "
-        "الذهب وناسداك لديهما أيضاً إعداد مناطق محفوظ؛ "
+        "الذهب لديه أيضاً إعداد مناطق محفوظ؛ "
         "الفوليوم للسياق فقط. كل هدف ثلث الحجم.",
         "تأخير الفحص المفترض بعد إغلاق الشمعة: "
         f"{SCAN_DELAY.total_seconds():g} ثانية؛ "
@@ -747,7 +747,7 @@ def save_results(mode, results, text, start, end):
             "gold_volume_mode": (
                 "ordinary_volume_context_only"
             ),
-            "gold_and_ndx_strategy": "sequence_v1",
+            "gold_strategy": "sequence_v1",
             "breakout_all_assets": True,
             "news_replayed": False,
             "scan_every_n_15m_bars": STEP,
