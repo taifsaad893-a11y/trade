@@ -2254,7 +2254,8 @@
     "created_close": "2026-11-24T19:30:00+00:00",
     "state": "FILLED",
     "version": "sr_breakout_retest_15m_v1",
-    "id": "SR-GOLD-00023"
+    "id": "SR-GOLD-00023",
+    "last_end": "2026-11-24T19:35:00+00:00"
    }
   },
   "used": [
